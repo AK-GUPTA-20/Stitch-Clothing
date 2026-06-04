@@ -232,6 +232,8 @@ function EditProfileTab({ user, updateUser }: { user: any; updateUser: (u: any) 
   const [saved, setSaved]       = useState(false);
   const [savedM, setSavedM]     = useState(false);
   const [error, setError]       = useState('');
+  const [phoneVerifySuccess, setPhoneVerifySuccess] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const handleVerifyClick = async () => {
     toast.info('Coming Soon', {
