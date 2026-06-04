@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import Footer from "@/components/Footer";
-import { getCategoryLabel } from "@/lib/utils";
+import { getCategoryLabel, getValidImages } from "@/lib/utils";
 import ProductCard from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 import PublicSellerProfile from "@/components/seller/PublicSellerProfile";
@@ -256,7 +256,7 @@ function ProductDetail({
       id: productId,
       name: product.name,
       price: product.price,
-      image: (product.images?.[0] as any)?.url || product.image || "",
+      image: getValidImages(product)[0] || "",
       productId,
     });
     toast[wishlist ? "info" : "success"](
@@ -265,12 +265,7 @@ function ProductDetail({
     );
   };
 
-  const images: string[] =
-    product.images && product.images.length > 0
-      ? product.images.map((img) => (typeof img === "string" ? img : img.url))
-      : product.image
-      ? [product.image]
-      : [];
+  const images: string[] = getValidImages(product);
 
   const sizes: string[] =
     product.sizes && product.sizes.length > 0

@@ -153,3 +153,27 @@ export function getDeterministicObjectId(str: string): string {
   }
   return hex.substring(0, 24);
 }
+
+// ── Image Validation Helpers ────────────────────────────────────────────────
+/**
+ * Safely extracts and validates images from a product.
+ * Filters out invalid or localhost images and ensures a fallback is provided.
+ */
+export function getValidImages(product: any, fallback = "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80"): string[] {
+  let images: string[] = [];
+  
+  if (product?.images && product.images.length > 0) {
+    images = product.images.map((img: any) => (typeof img === 'object' ? img.url : img));
+  } else if (product?.image) {
+    images = [product.image];
+  }
+
+  // Filter out localhost/invalid images
+  images = images.filter(img => img && typeof img === 'string' && !img.includes('localhost'));
+
+  if (images.length === 0) {
+    images = [fallback];
+  }
+
+  return images;
+}

@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/lib/context/CartContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
-import { getColorLabel, getSizeLabel } from "@/lib/utils";
+import { getColorLabel, getSizeLabel, getValidImages } from "@/lib/utils";
 import { orderService } from "@/lib/api/orderService";
 import { productService } from "@/lib/api/productService";
 import { Address } from "@/lib/types/user.types";
@@ -156,12 +156,11 @@ function getDigits(value: string) {
 }
 
 function getProductImage(product: any, variant: any, fallback?: string) {
-  if (variant?.images?.length) return variant.images[0];
-  if (product?.images?.length) {
-    const primary = product.images.find((image: any) => image?.isPrimary);
-    return primary?.url || product.images[0]?.url || fallback || "";
+  if (variant?.images?.length) {
+    const variantImg = variant.images[0];
+    if (typeof variantImg === 'string' && !variantImg.includes('localhost')) return variantImg;
   }
-  return product?.image || fallback || "";
+  return getValidImages(product, fallback)[0] || "";
 }
 
 function getSelectedVariant(

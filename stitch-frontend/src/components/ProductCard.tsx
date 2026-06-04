@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import { useCart } from "@/lib/context/CartContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useWishlist } from "@/lib/context/WishlistContext";
-import { getCategoryLabel } from "@/lib/utils";
+import { getCategoryLabel, getValidImages } from "@/lib/utils";
 import { Product } from "@/lib/types/product.types";
 import { 
   Heart, ZoomIn, ShoppingBag, X, ChevronLeft, ChevronRight, Minus, Plus, ArrowUpRight 
@@ -36,9 +36,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
 
   // Dynamic images from product gallery
-  const productImages = product?.images && product.images.length > 0
-    ? product.images.map((img: any) => typeof img === 'object' ? img.url : img)
-    : [product?.image || "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80"];
+  const productImages = getValidImages(product);
 
   const images = [...productImages];
   while (images.length < 3) {
@@ -204,9 +202,7 @@ function ProductCard({ product }: ProductCardProps) {
   }, []);
 
   // Dynamic images from product gallery
-  const productImages = product.images && product.images.length > 0
-    ? product.images.map((img: any) => typeof img === 'object' ? img.url : img)
-    : [product.image || "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80"];
+  const productImages = getValidImages(product);
   
   const images = [...productImages];
   while (images.length < 3) {
