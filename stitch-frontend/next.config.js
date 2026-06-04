@@ -44,7 +44,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.unsplash.com https://*.cloudinary.com https://*.amazonaws.com https://images.unsplash.com https://ik.imagekit.io",
-              "connect-src 'self' http://localhost:4000 https://api.stitch.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
+              "connect-src 'self' http://localhost:4000 https://api.stitch.com https://*.onrender.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
               "frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
               "frame-ancestors 'none'",
               "base-uri 'self'",
