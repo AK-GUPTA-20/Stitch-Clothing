@@ -351,7 +351,7 @@ export default function CartDrawer() {
                         <div key={u.id} className="flex-shrink-0 w-28 snap-start group">
                           <div className="aspect-square bg-stone-100 overflow-hidden mb-2 relative">
                             <img
-                              src={u.image}
+                              src={getValidImage(u.image)}
                               alt={u.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />

@@ -109,7 +109,30 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
   }
 
-  const data = await response.json().catch(() => null);
+  let data = await response.json().catch(() => null);
+
+  // SANITIZE DATA globally to prevent any legacy localhost image URLs from breaking the site
+  if (data) {
+    const sanitize = (obj: any): any => {
+      if (typeof obj === 'string') {
+        return obj.includes('http://localhost:4000') 
+          ? "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80" 
+          : obj;
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(sanitize);
+      }
+      if (obj !== null && typeof obj === 'object') {
+        const newObj: any = {};
+        for (const key in obj) {
+          newObj[key] = sanitize(obj[key]);
+        }
+        return newObj;
+      }
+      return obj;
+    };
+    data = sanitize(data);
+  }
 
   if (!response.ok) {
     throw new ApiError(
