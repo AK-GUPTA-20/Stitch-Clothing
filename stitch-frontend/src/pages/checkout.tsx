@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/lib/context/CartContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
-import { getColorLabel, getSizeLabel, getValidImages } from "@/lib/utils";
+import { getColorLabel, getSizeLabel, getValidImages, getValidImage } from "@/lib/utils";
 import { orderService } from "@/lib/api/orderService";
 import { productService } from "@/lib/api/productService";
 import { Address } from "@/lib/types/user.types";
@@ -517,7 +517,7 @@ export default function CheckoutPage() {
             name: item.name,
             slug: item.slug,
             sku: item.sku,
-            image: item.image,
+            image: getValidImage(item.image),
             color: item.color,
             size: item.size,
             unitPrice: item.unitPrice,
@@ -1245,7 +1245,7 @@ export default function CheckoutPage() {
                       <div className="relative shrink-0">
                         <div className="h-16 w-12 bg-stone-100 overflow-hidden">
                           <img
-                            src={item.image}
+                            src={getValidImage(item.image)}
                             alt={item.name}
                             className="h-full w-full object-contain p-1"
                             loading="lazy"
@@ -1544,7 +1544,7 @@ function MobileOrderSummary({
           <div className="relative shrink-0">
             <div className="h-14 w-10 bg-stone-100 overflow-hidden">
               <img
-                src={item.image}
+                src={getValidImage(item.image)}
                 alt={item.name}
                 className="h-full w-full object-contain p-1"
                 loading="lazy"

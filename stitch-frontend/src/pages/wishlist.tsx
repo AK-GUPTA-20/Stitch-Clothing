@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import Footer from "@/components/Footer";
 import { useWishlist } from "@/lib/context/WishlistContext";
 import { useCart } from "@/lib/context/CartContext";
+import { formatCurrency, getValidImage } from "@/lib/utils";
 import { useToast } from "@/lib/context/ToastContext";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { Heart, ShoppingBag, ArrowRight, X } from "lucide-react";
@@ -81,7 +82,7 @@ export default function WishlistPage() {
                     <Link href={`/product/${getWishlistProductId(item)}`} className="block relative bg-stone-100 aspect-[3/4] overflow-hidden">
                       {item.image ? (
                         <img
-                          src={item.image}
+                          src={getValidImage(item.image)}
                           alt={item.name}
                           className="w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-105"
                         />

@@ -177,3 +177,13 @@ export function getValidImages(product: any, fallback = "https://images.unsplash
 
   return images;
 }
+
+/**
+ * Safely validates a single image string.
+ */
+export function getValidImage(img: string | undefined | null, fallback = "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80"): string {
+  if (img && typeof img === 'string' && !img.includes('localhost')) {
+    return img;
+  }
+  return fallback;
+}

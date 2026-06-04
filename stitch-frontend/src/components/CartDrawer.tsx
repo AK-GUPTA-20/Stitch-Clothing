@@ -8,7 +8,7 @@ import {
   Truck, Gift, Sparkles, Tag,
 } from "lucide-react";
 import { useCart } from "@/lib/context/CartContext";
-import { getColorLabel, getSizeLabel } from '@/lib/utils';
+import { getColorLabel, getSizeLabel, formatCurrency, getValidImage } from '@/lib/utils';
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useConfig } from "@/lib/context/ConfigContext";
@@ -271,7 +271,7 @@ export default function CartDrawer() {
                             aria-label={`View ${item.name}`}
                           >
                             <img
-                              src={item.image}
+                              src={getValidImage(item.image)}
                               alt={item.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
