@@ -1,0 +1,64 @@
+const catchAsyncError = require("../middleware/catchAsyncError");
+const ErrorHandler = require("../middleware/error");
+const Promotion = require("../models/Promotion");
+
+// @desc    Create a promotion
+// @route   POST /api/v1/promotions
+// @access  Admin
+exports.createPromotion = catchAsyncError(async (req, res, next) => {
+  const promotion = await Promotion.create(req.body);
+  res.status(201).json({ success: true, data: promotion });
+});
+
+// @desc    Get all promotions
+// @route   GET /api/v1/promotions
+// @access  Public
+exports.getPromotions = catchAsyncError(async (req, res, next) => {
+  const promotions = await Promotion.find({ isActive: true });
+  res.status(200).json({ success: true, count: promotions.length, data: promotions });
+});
+
+// @desc    Get single promotion
+// @route   GET /api/v1/promotions/:id
+// @access  Public
+exports.getPromotionById = catchAsyncError(async (req, res, next) => {
+  const promotion = await Promotion.findById(req.params.id);
+
+  if (!promotion) {
+    return next(new ErrorHandler("Promotion not found", 404));
+  }
+
+  res.status(200).json({ success: true, data: promotion });
+});
+
+// @desc    Update promotion
+// @route   PUT /api/v1/promotions/:id
+// @access  Admin
+exports.updatePromotion = catchAsyncError(async (req, res, next) => {
+  const promotion = await Promotion.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!promotion) {
+    return next(new ErrorHandler("Promotion not found", 404));
+  }
+
+  res.status(200).json({ success: true, data: promotion });
+});
+
+// @desc    Delete promotion
+// @route   DELETE /api/v1/promotions/:id
+// @access  Admin
+exports.deletePromotion = catchAsyncError(async (req, res, next) => {
+  const promotion = await Promotion.findById(req.params.id);
+
+  if (!promotion) {
+    return next(new ErrorHandler("Promotion not found", 404));
+  }
+
+  promotion.isActive = false;
+  await promotion.save();
+
+  res.status(200).json({ success: true, data: {} });
+});
