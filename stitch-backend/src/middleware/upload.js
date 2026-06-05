@@ -7,11 +7,9 @@ const storage = multer.memoryStorage();
 
 // File filter to restrict uploads to common image formats
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|webp|pdf/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === "application/pdf";
+  const ALLOWED_MIMETYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']);
 
-  if (extname && mimetype) {
+  if (ALLOWED_MIMETYPES.has(file.mimetype.toLowerCase())) {
     return cb(null, true);
   } else {
     cb(new Error("Only image and PDF files are allowed!"), false);

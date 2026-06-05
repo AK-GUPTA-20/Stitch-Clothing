@@ -376,9 +376,10 @@ productSchema.pre("save", function () {
 /* ─────────────────────────────────────────────────────────────────────────────
    INDEXES
 ───────────────────────────────────────────────────────────────────────────── */
-productSchema.index({ slug: 1 }, { unique: true });
+
 productSchema.index({ "category.id": 1 });
 productSchema.index({ "brand.id": 1 });
+productSchema.index({ sellerId: 1, deletedAt: 1 });
 productSchema.index({ sellerId: 1 });
 productSchema.index({ status: 1, isActive: 1 });               
 productSchema.index({ gender: 1 });

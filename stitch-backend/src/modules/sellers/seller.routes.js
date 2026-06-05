@@ -41,10 +41,10 @@ const {
   refreshAnalyticsCache,
   getSellerDashboard,
   getPublicSellerAnalytics,
-} = require("../controllers/sellerController");
+} = require("./seller.controller");
 
-const { isAuthenticated, isAdmin, isAuthorized } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { isAuthenticated, isAdmin, isAuthorized } = require("../../middleware/auth");
+const upload = require("../../middleware/upload");
 
 const router = express.Router();
 

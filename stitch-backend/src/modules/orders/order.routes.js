@@ -33,9 +33,9 @@ const {
   sellerDeliverOrder,
   sellerUpdateReturnStatus,
   sellerUpdateStatus,
-} = require("../controllers/orderController");
+} = require("./order.controller");
 
-const { isAuthenticated, isAdmin, isAuthorized } = require("../middleware/auth");
+const { isAuthenticated, isAdmin, isAuthorized } = require("../../middleware/auth");
 
 const router = express.Router();
 

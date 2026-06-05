@@ -1,6 +1,6 @@
 "use strict";
 
-const catchAsyncError = require("../middleware/catchAsyncError");
+const asyncHandler = require("../middleware/asyncHandler");
 const ErrorHandler    = require("../middleware/error");
 const Config          = require("../models/Config");
 
@@ -40,7 +40,7 @@ async function _writeAudit(req, action, targetType, targetId, description, chang
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all public-facing platform settings (maintenance mode, currency, etc.)  GET /api/v1/configs/public
-exports.getPublicSettings = catchAsyncError(async (req, res) => {
+exports.getPublicSettings = asyncHandler(async (req, res) => {
   const doc = await Config.findOne({ type: "platform_settings" }).select(
     "settings.general.platformName settings.general.currency settings.general.maintenanceMode " +
     "settings.general.maintenanceMessage settings.general.logoUrl settings.general.faviconUrl " +
@@ -56,7 +56,7 @@ exports.getPublicSettings = catchAsyncError(async (req, res) => {
 });
 
 //* Get a single public key-value config by key  GET /api/v1/configs/public/:key
-exports.getPublicConfigByKey = catchAsyncError(async (req, res, next) => {
+exports.getPublicConfigByKey = asyncHandler(async (req, res, next) => {
   const config = await Config.findOne({ key: req.params.key, isPublic: true, type: "platform_settings" });
   if (!config) return next(new ErrorHandler("Config not found or not public.", 404));
 
@@ -64,7 +64,7 @@ exports.getPublicConfigByKey = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get all active FAQs grouped by category  GET /api/v1/configs/content/faqs
-exports.getPublicFAQs = catchAsyncError(async (req, res) => {
+exports.getPublicFAQs = asyncHandler(async (req, res) => {
   const { category } = req.query;
 
   const filter = { type: "content_page", "content.contentType": "faq", "content.isActive": true };
@@ -80,7 +80,7 @@ exports.getPublicFAQs = catchAsyncError(async (req, res) => {
 });
 
 //* Get a content page by slug (static page, policy, banner)  GET /api/v1/configs/content/slug/:slug
-exports.getContentBySlug = catchAsyncError(async (req, res, next) => {
+exports.getContentBySlug = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({
     type               : "content_page",
     "content.slug"     : req.params.slug.toLowerCase(),
@@ -97,7 +97,7 @@ exports.getContentBySlug = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get the full platform settings document (admin)  GET /api/v1/configs/settings
-exports.getPlatformSettings = catchAsyncError(async (req, res) => {
+exports.getPlatformSettings = asyncHandler(async (req, res) => {
   const doc = await Config.findOne({ type: "platform_settings" }).select(
     "-settings.email.templates -settings.payment.gateways -settings.tax.slabs " +
     "-settings.loyalty.rules -settings.loyalty.tiers"
@@ -107,7 +107,7 @@ exports.getPlatformSettings = catchAsyncError(async (req, res) => {
 });
 
 //* Update general platform settings  PATCH /api/v1/configs/settings/general
-exports.updateGeneralSettings = catchAsyncError(async (req, res, next) => {
+exports.updateGeneralSettings = asyncHandler(async (req, res, next) => {
   const ALLOWED = [
     "platformName", "supportEmail", "supportPhone", "currency", "timezone",
     "allowGuestCheckout", "maxCartItems", "maxWishlistItems",
@@ -134,7 +134,7 @@ exports.updateGeneralSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle maintenance mode on or off  PATCH /api/v1/configs/settings/maintenance
-exports.toggleMaintenanceMode = catchAsyncError(async (req, res, next) => {
+exports.toggleMaintenanceMode = asyncHandler(async (req, res, next) => {
   const { maintenanceMode, maintenanceMessage } = req.body;
 
   if (maintenanceMode === undefined) return next(new ErrorHandler("maintenanceMode boolean is required.", 400));
@@ -162,7 +162,7 @@ exports.toggleMaintenanceMode = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update shipping settings  PATCH /api/v1/configs/settings/shipping
-exports.updateShippingSettings = catchAsyncError(async (req, res, next) => {
+exports.updateShippingSettings = asyncHandler(async (req, res, next) => {
   const ALLOWED = ["defaultCourier", "freeShippingAbove", "packagingCharge", "codCharge", "expressAvailable", "expressCharge"];
 
   const updates = {};
@@ -184,7 +184,7 @@ exports.updateShippingSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update payment settings (COD, wallet, EMI toggles)  PATCH /api/v1/configs/settings/payment
-exports.updatePaymentSettings = catchAsyncError(async (req, res, next) => {
+exports.updatePaymentSettings = asyncHandler(async (req, res, next) => {
   const ALLOWED = ["codEnabled", "codMaxOrderValue", "walletEnabled", "loyaltyEnabled", "emiEnabled", "autoRefundEnabled", "autoRefundDays"];
 
   const updates = {};
@@ -206,7 +206,7 @@ exports.updatePaymentSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update email provider settings  PATCH /api/v1/configs/settings/email
-exports.updateEmailSettings = catchAsyncError(async (req, res, next) => {
+exports.updateEmailSettings = asyncHandler(async (req, res, next) => {
   const { provider, fromName, fromEmail, replyToEmail } = req.body;
 
   const updates = {};
@@ -228,7 +228,7 @@ exports.updateEmailSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update SMS provider settings  PATCH /api/v1/configs/settings/sms
-exports.updateSmsSettings = catchAsyncError(async (req, res, next) => {
+exports.updateSmsSettings = asyncHandler(async (req, res, next) => {
   const {
     provider, enabled, fromNumber, accountSid, authToken, apiKey,
     orderConfirmationEnabled, orderShippedEnabled, orderDeliveredEnabled,
@@ -260,7 +260,7 @@ exports.updateSmsSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update 3D viewer settings  PATCH /api/v1/configs/settings/viewer3d
-exports.updateViewer3DSettings = catchAsyncError(async (req, res, next) => {
+exports.updateViewer3DSettings = asyncHandler(async (req, res, next) => {
   const ALLOWED = [
     "enabled", "defaultModelFormat", "autoRotate", "showWireframe", "enableAR",
     "maxFileSizeMb", "allowedFormats", "watermarkEnabled", "watermarkText",
@@ -291,7 +291,7 @@ exports.updateViewer3DSettings = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all payment gateways (secrets excluded)  GET /api/v1/configs/settings/payment/gateways
-exports.getPaymentGateways = catchAsyncError(async (req, res) => {
+exports.getPaymentGateways = asyncHandler(async (req, res) => {
   const doc = await Config.findOne({ type: "platform_settings" }).select("settings.payment.gateways");
   const gateways = (doc?.settings?.payment?.gateways || []).map((g) => {
     const obj = g.toObject();
@@ -303,7 +303,7 @@ exports.getPaymentGateways = catchAsyncError(async (req, res) => {
 });
 
 //* Add a new payment gateway  POST /api/v1/configs/settings/payment/gateways
-exports.addPaymentGateway = catchAsyncError(async (req, res, next) => {
+exports.addPaymentGateway = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
 
   const exists = doc.settings.payment.gateways.some((g) => g.name === req.body.name);
@@ -322,7 +322,7 @@ exports.addPaymentGateway = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a payment gateway by ID  PUT /api/v1/configs/settings/payment/gateways/:gatewayId
-exports.updatePaymentGateway = catchAsyncError(async (req, res, next) => {
+exports.updatePaymentGateway = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
   const gw  = doc.settings.payment.gateways.id(req.params.gatewayId);
   if (!gw) return next(new ErrorHandler("Payment gateway not found.", 404));
@@ -342,7 +342,7 @@ exports.updatePaymentGateway = catchAsyncError(async (req, res, next) => {
 });
 
 //* Set a gateway as the primary payment gateway  PATCH /api/v1/configs/settings/payment/gateways/:gatewayId/primary
-exports.setPrimaryGateway = catchAsyncError(async (req, res, next) => {
+exports.setPrimaryGateway = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
   const gw  = doc.settings.payment.gateways.id(req.params.gatewayId);
   if (!gw) return next(new ErrorHandler("Payment gateway not found.", 404));
@@ -358,7 +358,7 @@ exports.setPrimaryGateway = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a payment gateway  DELETE /api/v1/configs/settings/payment/gateways/:gatewayId
-exports.deletePaymentGateway = catchAsyncError(async (req, res, next) => {
+exports.deletePaymentGateway = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
   const gw  = doc.settings.payment.gateways.id(req.params.gatewayId);
   if (!gw) return next(new ErrorHandler("Payment gateway not found.", 404));
@@ -379,7 +379,7 @@ exports.deletePaymentGateway = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Update tax settings (GST toggle, default rate)  PATCH /api/v1/configs/settings/tax
-exports.updateTaxSettings = catchAsyncError(async (req, res, next) => {
+exports.updateTaxSettings = asyncHandler(async (req, res, next) => {
   const { gstEnabled, taxIncluded, defaultTaxRate } = req.body;
 
   const updates = { updatedBy: req.user._id };
@@ -399,7 +399,7 @@ exports.updateTaxSettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a new tax slab  POST /api/v1/configs/settings/tax/slabs
-exports.addTaxSlab = catchAsyncError(async (req, res, next) => {
+exports.addTaxSlab = asyncHandler(async (req, res, next) => {
   if (req.body.rate === undefined) return next(new ErrorHandler("rate is required.", 400));
 
   const doc = await _getPlatformDoc();
@@ -416,7 +416,7 @@ exports.addTaxSlab = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a tax slab by ID  PUT /api/v1/configs/settings/tax/slabs/:slabId
-exports.updateTaxSlab = catchAsyncError(async (req, res, next) => {
+exports.updateTaxSlab = asyncHandler(async (req, res, next) => {
   const doc  = await _getPlatformDoc();
   const slab = doc.settings.tax.slabs.id(req.params.slabId);
   if (!slab) return next(new ErrorHandler("Tax slab not found.", 404));
@@ -433,7 +433,7 @@ exports.updateTaxSlab = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a tax slab  DELETE /api/v1/configs/settings/tax/slabs/:slabId
-exports.deleteTaxSlab = catchAsyncError(async (req, res, next) => {
+exports.deleteTaxSlab = asyncHandler(async (req, res, next) => {
   const doc  = await _getPlatformDoc();
   const slab = doc.settings.tax.slabs.id(req.params.slabId);
   if (!slab) return next(new ErrorHandler("Tax slab not found.", 404));
@@ -450,7 +450,7 @@ exports.deleteTaxSlab = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all email templates  GET /api/v1/configs/settings/email/templates
-exports.getEmailTemplates = catchAsyncError(async (req, res) => {
+exports.getEmailTemplates = asyncHandler(async (req, res) => {
   const { isActive } = req.query;
 
   const doc = await Config.findOne({ type: "platform_settings" }).select("settings.email.templates");
@@ -461,7 +461,7 @@ exports.getEmailTemplates = catchAsyncError(async (req, res) => {
 });
 
 //* Create or replace an email template by key  POST /api/v1/configs/settings/email/templates
-exports.upsertEmailTemplate = catchAsyncError(async (req, res, next) => {
+exports.upsertEmailTemplate = asyncHandler(async (req, res, next) => {
   const { key, subject, htmlBody, textBody, variables } = req.body;
   if (!key || !subject || !htmlBody) return next(new ErrorHandler("key, subject and htmlBody are required.", 400));
 
@@ -487,7 +487,7 @@ exports.upsertEmailTemplate = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle an email template active or inactive  PATCH /api/v1/configs/settings/email/templates/:templateId/toggle
-exports.toggleEmailTemplate = catchAsyncError(async (req, res, next) => {
+exports.toggleEmailTemplate = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
   const tmpl = doc.settings.email.templates.id(req.params.templateId);
   if (!tmpl) return next(new ErrorHandler("Email template not found.", 404));
@@ -505,7 +505,7 @@ exports.toggleEmailTemplate = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Update loyalty global settings (points value, expiry, referral bonuses)  PATCH /api/v1/configs/settings/loyalty
-exports.updateLoyaltySettings = catchAsyncError(async (req, res, next) => {
+exports.updateLoyaltySettings = asyncHandler(async (req, res, next) => {
   const ALLOWED = ["enabled", "pointsExpiryDays", "pointsValue", "maxRedemptionPercent", "referralBonusBuyer", "referralBonusReferrer"];
 
   const updates = { updatedBy: req.user._id };
@@ -525,7 +525,7 @@ exports.updateLoyaltySettings = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a loyalty earn rule  POST /api/v1/configs/settings/loyalty/rules
-exports.addLoyaltyRule = catchAsyncError(async (req, res, next) => {
+exports.addLoyaltyRule = asyncHandler(async (req, res, next) => {
   if (!req.body.action || req.body.pointsPerUnit === undefined) {
     return next(new ErrorHandler("action and pointsPerUnit are required.", 400));
   }
@@ -543,7 +543,7 @@ exports.addLoyaltyRule = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a loyalty rule by ID  PUT /api/v1/configs/settings/loyalty/rules/:ruleId
-exports.updateLoyaltyRule = catchAsyncError(async (req, res, next) => {
+exports.updateLoyaltyRule = asyncHandler(async (req, res, next) => {
   const doc  = await _getPlatformDoc();
   const rule = doc.settings.loyalty.rules.id(req.params.ruleId);
   if (!rule) return next(new ErrorHandler("Loyalty rule not found.", 404));
@@ -556,7 +556,7 @@ exports.updateLoyaltyRule = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a loyalty rule  DELETE /api/v1/configs/settings/loyalty/rules/:ruleId
-exports.deleteLoyaltyRule = catchAsyncError(async (req, res, next) => {
+exports.deleteLoyaltyRule = asyncHandler(async (req, res, next) => {
   const doc = await _getPlatformDoc();
   if (!doc.settings.loyalty.rules.id(req.params.ruleId)) return next(new ErrorHandler("Loyalty rule not found.", 404));
 
@@ -568,7 +568,7 @@ exports.deleteLoyaltyRule = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a loyalty tier (bronze, silver, gold, platinum)  POST /api/v1/configs/settings/loyalty/tiers
-exports.addLoyaltyTier = catchAsyncError(async (req, res, next) => {
+exports.addLoyaltyTier = asyncHandler(async (req, res, next) => {
   if (!req.body.name || req.body.minPoints === undefined) {
     return next(new ErrorHandler("name and minPoints are required.", 400));
   }
@@ -586,7 +586,7 @@ exports.addLoyaltyTier = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a loyalty tier by ID  PUT /api/v1/configs/settings/loyalty/tiers/:tierId
-exports.updateLoyaltyTier = catchAsyncError(async (req, res, next) => {
+exports.updateLoyaltyTier = asyncHandler(async (req, res, next) => {
   const doc  = await _getPlatformDoc();
   const tier = doc.settings.loyalty.tiers.id(req.params.tierId);
   if (!tier) return next(new ErrorHandler("Loyalty tier not found.", 404));
@@ -603,7 +603,7 @@ exports.updateLoyaltyTier = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all webhooks with delivery stats  GET /api/v1/configs/webhooks
-exports.getWebhooks = catchAsyncError(async (req, res) => {
+exports.getWebhooks = asyncHandler(async (req, res) => {
   const { isActive } = req.query;
 
   const filter = { type: "webhook" };
@@ -615,7 +615,7 @@ exports.getWebhooks = catchAsyncError(async (req, res) => {
 });
 
 //* Create a new webhook endpoint  POST /api/v1/configs/webhooks
-exports.createWebhook = catchAsyncError(async (req, res, next) => {
+exports.createWebhook = asyncHandler(async (req, res, next) => {
   const { name, url, events, secret, retryPolicy, headers } = req.body;
   if (!name || !url) return next(new ErrorHandler("name and url are required.", 400));
 
@@ -636,7 +636,7 @@ exports.createWebhook = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get a webhook by ID  GET /api/v1/configs/webhooks/:id
-exports.getWebhookById = catchAsyncError(async (req, res, next) => {
+exports.getWebhookById = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "webhook" }).select("-webhook.secret");
   if (!doc) return next(new ErrorHandler("Webhook not found.", 404));
 
@@ -644,7 +644,7 @@ exports.getWebhookById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a webhook's config  PUT /api/v1/configs/webhooks/:id
-exports.updateWebhook = catchAsyncError(async (req, res, next) => {
+exports.updateWebhook = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "webhook" });
   if (!doc) return next(new ErrorHandler("Webhook not found.", 404));
 
@@ -661,7 +661,7 @@ exports.updateWebhook = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle a webhook active or inactive  PATCH /api/v1/configs/webhooks/:id/toggle
-exports.toggleWebhook = catchAsyncError(async (req, res, next) => {
+exports.toggleWebhook = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "webhook" });
   if (!doc) return next(new ErrorHandler("Webhook not found.", 404));
 
@@ -673,7 +673,7 @@ exports.toggleWebhook = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a webhook  DELETE /api/v1/configs/webhooks/:id
-exports.deleteWebhook = catchAsyncError(async (req, res, next) => {
+exports.deleteWebhook = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOneAndDelete({ _id: req.params.id, type: "webhook" });
   if (!doc) return next(new ErrorHandler("Webhook not found.", 404));
 
@@ -683,7 +683,7 @@ exports.deleteWebhook = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get delivery logs for a webhook with pagination  GET /api/v1/configs/webhooks/:id/logs
-exports.getWebhookLogs = catchAsyncError(async (req, res, next) => {
+exports.getWebhookLogs = asyncHandler(async (req, res, next) => {
   const { page = 1, limit = 20, status } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -712,7 +712,7 @@ exports.getWebhookLogs = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all audit logs with filters and pagination  GET /api/v1/configs/audit-logs
-exports.getAuditLogs = catchAsyncError(async (req, res) => {
+exports.getAuditLogs = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 30,
     adminId, targetType, action,
@@ -758,7 +758,7 @@ exports.getAuditLogs = catchAsyncError(async (req, res) => {
 });
 
 //* Create an audit log entry manually (system / internal use)  POST /api/v1/configs/audit-logs
-exports.createAuditLog = catchAsyncError(async (req, res, next) => {
+exports.createAuditLog = asyncHandler(async (req, res, next) => {
   const { action, targetType, targetId, description, changes } = req.body;
   if (!action) return next(new ErrorHandler("action is required.", 400));
 
@@ -783,7 +783,7 @@ exports.createAuditLog = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get a single audit log entry by ID  GET /api/v1/configs/audit-logs/:id
-exports.getAuditLogById = catchAsyncError(async (req, res, next) => {
+exports.getAuditLogById = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "audit_log" }).select("audit createdAt");
   if (!doc) return next(new ErrorHandler("Audit log not found.", 404));
 
@@ -795,7 +795,7 @@ exports.getAuditLogById = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all content entries with filter by type  GET /api/v1/configs/content
-exports.getContentPages = catchAsyncError(async (req, res) => {
+exports.getContentPages = asyncHandler(async (req, res) => {
   const { contentType, isActive, page = 1, limit = 20 } = req.query;
 
   const filter = { type: "content_page" };
@@ -823,7 +823,7 @@ exports.getContentPages = catchAsyncError(async (req, res) => {
 });
 
 //* Create a content page, FAQ, redirect, or banner  POST /api/v1/configs/content
-exports.createContentPage = catchAsyncError(async (req, res, next) => {
+exports.createContentPage = asyncHandler(async (req, res, next) => {
   if (!req.body.contentType) return next(new ErrorHandler("contentType is required.", 400));
 
   if (req.body.slug) {
@@ -843,7 +843,7 @@ exports.createContentPage = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get a content page by ID  GET /api/v1/configs/content/:id
-exports.getContentPageById = catchAsyncError(async (req, res, next) => {
+exports.getContentPageById = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "content_page" }).select("content updatedAt");
   if (!doc) return next(new ErrorHandler("Content page not found.", 404));
 
@@ -851,7 +851,7 @@ exports.getContentPageById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a content page by ID  PUT /api/v1/configs/content/:id
-exports.updateContentPage = catchAsyncError(async (req, res, next) => {
+exports.updateContentPage = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "content_page" });
   if (!doc) return next(new ErrorHandler("Content page not found.", 404));
 
@@ -871,7 +871,7 @@ exports.updateContentPage = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle a content page active or inactive  PATCH /api/v1/configs/content/:id/toggle
-exports.toggleContentPage = catchAsyncError(async (req, res, next) => {
+exports.toggleContentPage = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOne({ _id: req.params.id, type: "content_page" });
   if (!doc) return next(new ErrorHandler("Content page not found.", 404));
 
@@ -884,7 +884,7 @@ exports.toggleContentPage = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a content page  DELETE /api/v1/configs/content/:id
-exports.deleteContentPage = catchAsyncError(async (req, res, next) => {
+exports.deleteContentPage = asyncHandler(async (req, res, next) => {
   const doc = await Config.findOneAndDelete({ _id: req.params.id, type: "content_page" });
   if (!doc) return next(new ErrorHandler("Content page not found.", 404));
 
@@ -898,7 +898,7 @@ exports.deleteContentPage = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all configs (admin, supports group and type filter)  GET /api/v1/configs
-exports.getAllConfigs = catchAsyncError(async (req, res) => {
+exports.getAllConfigs = asyncHandler(async (req, res) => {
   const { type, group, isPublic, page = 1, limit = 50 } = req.query;
 
   const filter = {};
@@ -923,7 +923,7 @@ exports.getAllConfigs = catchAsyncError(async (req, res) => {
 });
 
 //* Get a key-value config by key (public if isPublic=true)  GET /api/v1/configs/key/:key
-exports.getConfigByKey = catchAsyncError(async (req, res, next) => {
+exports.getConfigByKey = asyncHandler(async (req, res, next) => {
   const config = await Config.findOne({ key: req.params.key });
   if (!config) return next(new ErrorHandler("Config not found.", 404));
 
@@ -935,7 +935,7 @@ exports.getConfigByKey = catchAsyncError(async (req, res, next) => {
 });
 
 //* Create a new key-value config entry  POST /api/v1/configs
-exports.createConfig = catchAsyncError(async (req, res, next) => {
+exports.createConfig = asyncHandler(async (req, res, next) => {
   if (!req.body.type) return next(new ErrorHandler("type is required.", 400));
 
   if (req.body.key) {
@@ -952,7 +952,7 @@ exports.createConfig = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a key-value config by key  PUT /api/v1/configs/key/:key
-exports.updateConfigByKey = catchAsyncError(async (req, res, next) => {
+exports.updateConfigByKey = asyncHandler(async (req, res, next) => {
   const before = await Config.findOne({ key: req.params.key });
   if (!before) return next(new ErrorHandler("Config not found.", 404));
 
@@ -973,7 +973,7 @@ exports.updateConfigByKey = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a key-value config by key  DELETE /api/v1/configs/key/:key
-exports.deleteConfigByKey = catchAsyncError(async (req, res, next) => {
+exports.deleteConfigByKey = asyncHandler(async (req, res, next) => {
   const config = await Config.findOneAndDelete({ key: req.params.key });
   if (!config) return next(new ErrorHandler("Config not found.", 404));
 

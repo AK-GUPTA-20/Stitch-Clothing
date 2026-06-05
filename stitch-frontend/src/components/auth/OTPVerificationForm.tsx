@@ -4,7 +4,7 @@ import React, { useEffect, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ConfirmationResult } from 'firebase/auth';
-import { otpSchema, OTPFormValues } from '@/lib/validations/auth';
+import { otpSchema, type OTPFormValues } from "@/lib/schemas/auth";
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';

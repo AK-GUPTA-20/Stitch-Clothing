@@ -1,10 +1,11 @@
 "use strict";
 
 const path            = require("path");
-const catchAsyncError = require("../middleware/catchAsyncError");
-const ErrorHandler    = require("../middleware/error");
-const Product         = require("../models/Product");
-const { uploadToImageKit } = require("../utils/imagekit");
+const asyncHandler = require("../../middleware/asyncHandler");
+const ErrorHandler    = require("../../middleware/error");
+const Product         = require("../../models/Product");
+const { uploadToImageKit } = require("../../utils/imagekit");
+const ResponseFormatter = require("../../utils/responseFormatter");
 
 
 /** Recompute averageRating, totalRatings, totalReviews, ratingDistribution, sizeAccuracySummary */
@@ -88,7 +89,7 @@ function _serializeReview(review, productId) {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all active products with filter, search, sort & pagination  GET /api/v1/products
-exports.getProducts = catchAsyncError(async (req, res) => {
+exports.getProducts = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 20,
     search, category, brand, sellerId,
@@ -111,7 +112,7 @@ exports.getProducts = catchAsyncError(async (req, res) => {
   if (brand)          filter["brand.slug"]      = brand;
   if (sellerId) {
     const mongoose = require("mongoose");
-    const Seller = require("../models/Seller");
+    const Seller = require("../../models/Seller");
     let sellerIds = [sellerId];
     if (mongoose.Types.ObjectId.isValid(sellerId)) {
       const sellerDoc = await Seller.findOne({ $or: [{ _id: sellerId }, { userId: sellerId }] });
@@ -168,18 +169,11 @@ exports.getProducts = catchAsyncError(async (req, res) => {
     Product.countDocuments(filter),
   ]);
 
-  res.status(200).json({
-    success : true,
-    total,
-    page    : Number(page),
-    pages   : Math.ceil(total / Number(limit)),
-    count   : products.length,
-    data    : products,
-  });
+  res.status(200).json(ResponseFormatter.paginated(products, page, limit, total));
 });
 
 //* Get featured products  GET /api/v1/products/featured
-exports.getFeaturedProducts = catchAsyncError(async (req, res) => {
+exports.getFeaturedProducts = asyncHandler(async (req, res) => {
   const { limit = 12 } = req.query;
 
   const products = await Product.find({
@@ -197,7 +191,7 @@ exports.getFeaturedProducts = catchAsyncError(async (req, res) => {
 });
 
 //* Full-text search products  GET /api/v1/products/search
-exports.searchProducts = catchAsyncError(async (req, res) => {
+exports.searchProducts = asyncHandler(async (req, res) => {
   const { q, limit = 10 } = req.query;
 
   if (!q) {
@@ -217,7 +211,7 @@ exports.searchProducts = catchAsyncError(async (req, res) => {
 });
 
 //* Get single product by ID  GET /api/v1/products/:id
-exports.getProductById = catchAsyncError(async (req, res, next) => {
+exports.getProductById = asyncHandler(async (req, res, next) => {
   const product = await Product.findOne({
     _id      : req.params.id,
     isActive : true,
@@ -235,7 +229,7 @@ exports.getProductById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get single product by slug  GET /api/v1/products/slug/:slug
-exports.getProductBySlug = catchAsyncError(async (req, res, next) => {
+exports.getProductBySlug = asyncHandler(async (req, res, next) => {
   const product = await Product.findOne({
     slug     : req.params.slug.toLowerCase(),
     isActive : true,
@@ -252,7 +246,7 @@ exports.getProductBySlug = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get related products for a product  GET /api/v1/products/:id/related
-exports.getRelatedProducts = catchAsyncError(async (req, res, next) => {
+exports.getRelatedProducts = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id).select("relatedProductIds frequentlyBoughtWith category gender");
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -285,7 +279,7 @@ exports.getRelatedProducts = catchAsyncError(async (req, res, next) => {
 });
 
 //* Increment product view count  PATCH /api/v1/products/:id/view
-exports.incrementViewCount = catchAsyncError(async (req, res, next) => {
+exports.incrementViewCount = asyncHandler(async (req, res, next) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { $inc: { viewCount: 1 } },
@@ -298,7 +292,7 @@ exports.incrementViewCount = catchAsyncError(async (req, res, next) => {
 });
 
 //* Increment product share count  PATCH /api/v1/products/:id/share
-exports.incrementShareCount = catchAsyncError(async (req, res, next) => {
+exports.incrementShareCount = asyncHandler(async (req, res, next) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { $inc: { shareCount: 1 } },
@@ -311,11 +305,11 @@ exports.incrementShareCount = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get all products by a seller  GET /api/v1/products/seller/:sellerId
-exports.getProductsBySeller = catchAsyncError(async (req, res) => {
+exports.getProductsBySeller = asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, status } = req.query;
 
   const mongoose = require("mongoose");
-  const Seller = require("../models/Seller");
+  const Seller = require("../../models/Seller");
   let sellerIds = [req.params.sellerId];
   if (mongoose.Types.ObjectId.isValid(req.params.sellerId)) {
     const sellerDoc = await Seller.findOne({ $or: [{ _id: req.params.sellerId }, { userId: req.params.sellerId }] });
@@ -352,7 +346,7 @@ exports.getProductsBySeller = catchAsyncError(async (req, res) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Create a new product  POST /api/v1/products
-exports.createProduct = catchAsyncError(async (req, res) => {
+exports.createProduct = asyncHandler(async (req, res) => {
   // Attach seller from auth if not provided (seller role)
   if (!req.body.sellerId && req.user?.sellerId) {
     req.body.sellerId = req.user.sellerId;
@@ -373,7 +367,7 @@ exports.createProduct = catchAsyncError(async (req, res) => {
 });
 
 //* Update product fields  PUT /api/v1/products/:id
-exports.updateProduct = catchAsyncError(async (req, res, next) => {
+exports.updateProduct = asyncHandler(async (req, res, next) => {
   // Never allow direct mutation of computed/audit fields
   const PROTECTED = ["averageRating", "totalRatings", "totalReviews", "ratingDistribution",
     "viewCount", "salesCount", "wishlistCount", "shareCount", "approvedBy", "approvedAt",
@@ -392,7 +386,7 @@ exports.updateProduct = catchAsyncError(async (req, res, next) => {
 });
 
 //* Soft-delete a product  DELETE /api/v1/products/:id
-exports.deleteProduct = catchAsyncError(async (req, res, next) => {
+exports.deleteProduct = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -405,7 +399,7 @@ exports.deleteProduct = catchAsyncError(async (req, res, next) => {
 });
 
 //* Restore a soft-deleted product (admin)  PATCH /api/v1/products/:id/restore
-exports.restoreProduct = catchAsyncError(async (req, res, next) => {
+exports.restoreProduct = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -418,7 +412,7 @@ exports.restoreProduct = catchAsyncError(async (req, res, next) => {
 });
 
 //* Submit product for admin approval  PATCH /api/v1/products/:id/submit
-exports.submitForApproval = catchAsyncError(async (req, res, next) => {
+exports.submitForApproval = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -444,7 +438,7 @@ exports.submitForApproval = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Approve a pending product (admin)  PATCH /api/v1/products/:id/approve
-exports.approveProduct = catchAsyncError(async (req, res, next) => {
+exports.approveProduct = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -459,7 +453,7 @@ exports.approveProduct = catchAsyncError(async (req, res, next) => {
 });
 
 //* Reject a product with a reason (admin)  PATCH /api/v1/products/:id/reject
-exports.rejectProduct = catchAsyncError(async (req, res, next) => {
+exports.rejectProduct = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
   if (!reason) return next(new ErrorHandler("Rejection reason is required.", 400));
 
@@ -474,7 +468,7 @@ exports.rejectProduct = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle product featured status (admin)  PATCH /api/v1/products/:id/feature
-exports.toggleFeatured = catchAsyncError(async (req, res, next) => {
+exports.toggleFeatured = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -489,7 +483,7 @@ exports.toggleFeatured = catchAsyncError(async (req, res, next) => {
 });
 
 //* Bulk update product status (admin)  PATCH /api/v1/products/bulk/status
-exports.bulkUpdateStatus = catchAsyncError(async (req, res, next) => {
+exports.bulkUpdateStatus = asyncHandler(async (req, res, next) => {
   const { ids, status } = req.body;
 
   const ALLOWED = ["draft", "pending_approval", "approved", "rejected", "archived", "suspended"];
@@ -505,7 +499,7 @@ exports.bulkUpdateStatus = catchAsyncError(async (req, res, next) => {
 });
 
 //* Bulk soft-delete products (admin)  DELETE /api/v1/products/bulk
-exports.bulkDeleteProducts = catchAsyncError(async (req, res, next) => {
+exports.bulkDeleteProducts = asyncHandler(async (req, res, next) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) return next(new ErrorHandler("ids array is required.", 400));
 
@@ -522,7 +516,7 @@ exports.bulkDeleteProducts = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Add a new variant to a product  POST /api/v1/products/:id/variants
-exports.addVariant = catchAsyncError(async (req, res, next) => {
+exports.addVariant = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -539,7 +533,7 @@ exports.addVariant = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a specific variant  PUT /api/v1/products/:id/variants/:variantId
-exports.updateVariant = catchAsyncError(async (req, res, next) => {
+exports.updateVariant = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -558,7 +552,7 @@ exports.updateVariant = catchAsyncError(async (req, res, next) => {
 });
 
 //* Archive (soft-delete) a variant  DELETE /api/v1/products/:id/variants/:variantId
-exports.deleteVariant = catchAsyncError(async (req, res, next) => {
+exports.deleteVariant = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -573,7 +567,7 @@ exports.deleteVariant = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update stock levels for a variant  PATCH /api/v1/products/:id/variants/:variantId/stock
-exports.updateVariantStock = catchAsyncError(async (req, res, next) => {
+exports.updateVariantStock = asyncHandler(async (req, res, next) => {
   const { totalStock, reservedStock, warehouseStock } = req.body;
 
   const product = await Product.findById(req.params.id);
@@ -604,7 +598,7 @@ exports.updateVariantStock = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Add images to a product  POST /api/v1/products/:id/images
-exports.addImages = catchAsyncError(async (req, res, next) => {
+exports.addImages = asyncHandler(async (req, res, next) => {
   let newImages = [];
 
   if (req.files && Array.isArray(req.files) && req.files.length > 0) {
@@ -650,7 +644,7 @@ exports.addImages = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a product image  DELETE /api/v1/products/:id/images/:imageId
-exports.deleteImage = catchAsyncError(async (req, res, next) => {
+exports.deleteImage = asyncHandler(async (req, res, next) => {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     { $pull: { images: { _id: req.params.imageId } } },
@@ -663,7 +657,7 @@ exports.deleteImage = catchAsyncError(async (req, res, next) => {
 });
 
 //* Reorder product images by setting position values  PUT /api/v1/products/:id/images/reorder
-exports.reorderImages = catchAsyncError(async (req, res, next) => {
+exports.reorderImages = asyncHandler(async (req, res, next) => {
   const { order } = req.body; // [{ id, position }]
   if (!Array.isArray(order)) return next(new ErrorHandler("order array is required.", 400));
 
@@ -684,7 +678,7 @@ exports.reorderImages = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get approved reviews for a product with pagination  GET /api/v1/products/:id/reviews
-exports.getReviews = catchAsyncError(async (req, res, next) => {
+exports.getReviews = asyncHandler(async (req, res, next) => {
   const { page = 1, limit = 10, sortBy = "createdAt", order = "desc", rating } = req.query;
 
   const product = await Product.findById(req.params.id).select("reviews averageRating totalReviews ratingDistribution sizeAccuracySummary");
@@ -722,7 +716,7 @@ exports.getReviews = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a review to a product  POST /api/v1/products/:id/reviews
-exports.addReview = catchAsyncError(async (req, res, next) => {
+exports.addReview = asyncHandler(async (req, res, next) => {
   const {
     orderId,
     orderItemId,
@@ -800,7 +794,7 @@ exports.addReview = catchAsyncError(async (req, res, next) => {
 });
 
 //* Mark a review as helpful  PATCH /api/v1/products/:id/reviews/:reviewId/helpful
-exports.markReviewHelpful = catchAsyncError(async (req, res, next) => {
+exports.markReviewHelpful = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -828,7 +822,7 @@ exports.markReviewHelpful = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete own review  DELETE /api/v1/products/:id/reviews/:reviewId
-exports.deleteReview = catchAsyncError(async (req, res, next) => {
+exports.deleteReview = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -847,7 +841,7 @@ exports.deleteReview = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add or update seller reply to a review  POST /api/v1/products/:id/reviews/:reviewId/reply
-exports.addSellerReply = catchAsyncError(async (req, res, next) => {
+exports.addSellerReply = asyncHandler(async (req, res, next) => {
   const { text } = req.body;
   if (!text) return next(new ErrorHandler("Reply text is required.", 400));
 
@@ -880,7 +874,7 @@ exports.addSellerReply = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update review status — approve / reject / flag (admin)  PATCH /api/v1/products/:id/reviews/:reviewId/status
-exports.updateReviewStatus = catchAsyncError(async (req, res, next) => {
+exports.updateReviewStatus = asyncHandler(async (req, res, next) => {
   const { status, rejectionReason } = req.body;
   const ALLOWED = ["pending", "approved", "rejected", "flagged"];
 
@@ -909,7 +903,7 @@ exports.updateReviewStatus = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Save or update the 3D model metadata for a product  PUT /api/v1/products/:id/model3d
-exports.updateModel3D = catchAsyncError(async (req, res, next) => {
+exports.updateModel3D = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 
@@ -920,7 +914,7 @@ exports.updateModel3D = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update viewer configuration for a product's 3D model  PATCH /api/v1/products/:id/model3d/viewer-config
-exports.updateViewerConfig = catchAsyncError(async (req, res, next) => {
+exports.updateViewerConfig = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(req.params.id);
   if (!product) return next(new ErrorHandler("Product not found", 404));
 

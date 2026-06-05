@@ -64,8 +64,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   let response: Response;
   try {
     response = await fetch(url, { ...options, headers });
-  } catch (error: any) {
-    throw new ApiError(0, error?.message || 'Network error: Failed to fetch', error);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Network error: Failed to fetch';
+    throw new ApiError(0, msg, error);
   }
 
   // ── Token Refresh ────────────────────────────────────────────────────────
@@ -109,30 +110,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
   }
 
-  let data = await response.json().catch(() => null);
-
-  // SANITIZE DATA globally to prevent any legacy localhost image URLs from breaking the site
-  if (data) {
-    const sanitize = (obj: any): any => {
-      if (typeof obj === 'string') {
-        return obj.includes('http://localhost:4000') 
-          ? "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&q=80" 
-          : obj;
-      }
-      if (Array.isArray(obj)) {
-        return obj.map(sanitize);
-      }
-      if (obj !== null && typeof obj === 'object') {
-        const newObj: any = {};
-        for (const key in obj) {
-          newObj[key] = sanitize(obj[key]);
-        }
-        return newObj;
-      }
-      return obj;
-    };
-    data = sanitize(data);
-  }
+  const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     throw new ApiError(
@@ -140,6 +118,32 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       (data as { message?: string })?.message || response.statusText,
       data
     );
+  }
+
+  // Transparently unwrap the new standardized ResponseFormatter format
+  if (data && typeof data === 'object' && data.status === 'success' && 'data' in data) {
+    // If it's an array and has pagination meta, return an object containing the array + meta
+    if (Array.isArray(data.data) && data.meta?.pagination) {
+      return {
+        success: true,
+        data: data.data,
+        pagination: data.meta.pagination,
+        total: data.meta.pagination.total,
+        page: data.meta.pagination.page,
+        pages: data.meta.pagination.totalPages,
+        count: data.data.length
+      } as unknown as T;
+    }
+    
+    // If it's an object with keys (e.g. { user, token }), unpack it but keep success
+    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+      return {
+        success: true,
+        ...data.data,
+      } as unknown as T;
+    }
+
+    return data.data as T;
   }
 
   return data as T;

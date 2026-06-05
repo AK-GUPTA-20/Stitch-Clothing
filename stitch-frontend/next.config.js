@@ -2,11 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // ── Security Headers ─────────────────────────────────────────────────────────
   async headers() {
+    // Only apply strict security headers in production to avoid breaking Next.js HMR and Turbopack
+    if (process.env.NODE_ENV === 'development') {
+      return [];
+    }
+
     return [
       {
-        source: '/(.*)',
+        source: '/:path*',
         headers: [
           {
             key: 'X-DNS-Prefetch-Control',
@@ -24,10 +28,7 @@ const nextConfig = {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
+
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
@@ -40,7 +41,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
+              `script-src 'self' ${process.env.NODE_ENV !== 'production' ? "'unsafe-inline' 'unsafe-eval'" : ""} https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.unsplash.com https://*.cloudinary.com https://*.amazonaws.com https://images.unsplash.com https://ik.imagekit.io",

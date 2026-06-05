@@ -4,11 +4,11 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 
-const User = require("../models/User");
-const Order = require("../models/Order");
-const asyncHandler = require("../middleware/asyncHandler");
-const ErrorHandler = require("../middleware/error");
-const emailService = require("../utils/emailService");
+const User = require("../../models/User");
+const Order = require("../../models/Order");
+const asyncHandler = require("../../middleware/asyncHandler");
+const ErrorHandler = require("../../middleware/error");
+const emailService = require("../../utils/emailService");
 
 
 /** Sign a JWT access token */
@@ -23,6 +23,37 @@ const signRefreshToken = (id) =>
     expiresIn: process.env.JWT_REFRESH_EXPIRE,
   });
 
+/** Helper to build the user response payload, including order count and seller info */
+const buildUserResponse = async (user) => {
+  let orderCount = 0;
+  try {
+    orderCount = await Order.countDocuments({ userId: user._id });
+  } catch (err) {
+    console.error("Error counting orders:", err.message);
+  }
+
+  const userData = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  delete userData.password;
+  delete userData.refreshTokens;
+  delete userData.twoFactorSecret;
+  delete userData.otp;
+  delete userData.emailVerifyToken;
+  delete userData.googleId;
+  delete userData.facebookId;
+  delete userData.appleId;
+  userData.orderCount = orderCount;
+
+  if (user.role === "seller") {
+    const Seller = require("../../models/Seller");
+    const seller = await Seller.findOne({ userId: user._id });
+    if (seller) {
+      userData.sellerId = seller._id;
+    }
+  }
+
+  return userData;
+};
+
 /** Set the access-token cookie and return tokens */
 const sendTokenResponse = async (user, statusCode, res, refreshToken = null) => {
   const accessToken = signAccessToken(user._id);
@@ -36,29 +67,7 @@ const sendTokenResponse = async (user, statusCode, res, refreshToken = null) => 
 
   res.cookie("token", accessToken, cookieOptions);
 
-  // Get real order count from DB
-  let orderCount = 0;
-  try {
-    orderCount = await Order.countDocuments({ userId: user._id });
-  } catch (err) {
-    console.error("Error counting orders:", err.message);
-  }
-
-  // Strip sensitive fields before sending
-  const userData = user.toObject();
-  delete userData.password;
-  delete userData.refreshTokens;
-  delete userData.twoFactorSecret;
-  delete userData.otp;
-  userData.orderCount = orderCount;
-
-  if (user.role === "seller") {
-    const Seller = require("../models/Seller");
-    const seller = await Seller.findOne({ userId: user._id });
-    if (seller) {
-      userData.sellerId = seller._id;
-    }
-  }
+  const userData = await buildUserResponse(user);
 
   res.status(statusCode).json({
     success      : true,
@@ -382,7 +391,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // Send password reset email
-  emailService.sendPasswordResetOTP(user.email, rawOtp);
+  await emailService.sendPasswordResetOTP(user.email, rawOtp);
 
   res.status(200).json({
     success : true,
@@ -475,23 +484,7 @@ exports.changePassword = asyncHandler(async (req, res, next) => {
 exports.getMyProfile = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user._id).select(SAFE_FIELDS);
 
-  let orderCount = 0;
-  try {
-    orderCount = await Order.countDocuments({ userId: req.user._id });
-  } catch (err) {
-    console.error("Error counting orders:", err.message);
-  }
-
-  const userData = user.toObject();
-  userData.orderCount = orderCount;
-
-  if (user.role === "seller") {
-    const Seller = require("../models/Seller");
-    const seller = await Seller.findOne({ userId: user._id });
-    if (seller) {
-      userData.sellerId = seller._id;
-    }
-  }
+  const userData = await buildUserResponse(user);
 
   res.status(200).json({ success: true, user: userData });
 });
@@ -519,23 +512,7 @@ exports.updateProfile = asyncHandler(async (req, res, next) => {
     { new: true, runValidators: true }
   ).select(SAFE_FIELDS);
 
-  let orderCount = 0;
-  try {
-    orderCount = await Order.countDocuments({ userId: req.user._id });
-  } catch (err) {
-    console.error("Error counting orders:", err.message);
-  }
-
-  const userData = user.toObject();
-  userData.orderCount = orderCount;
-
-  if (user.role === "seller") {
-    const Seller = require("../models/Seller");
-    const seller = await Seller.findOne({ userId: user._id });
-    if (seller) {
-      userData.sellerId = seller._id;
-    }
-  }
+  const userData = await buildUserResponse(user);
 
   res.status(200).json({ success: true, user: userData });
 });

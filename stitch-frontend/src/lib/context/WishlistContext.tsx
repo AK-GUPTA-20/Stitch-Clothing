@@ -100,7 +100,7 @@ function mapServerWishlist(wishlist: unknown[]): WishlistItem[] {
 }
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const { isLoggedIn, isLoadingAuth, user, login, setWishlistCount } = useProfile();
+  const { isLoggedIn, isLoadingAuth, user, login } = useProfile();
   const [items, setItems] = useState<WishlistItem[]>([]);
 
   const storageKey = user?._id ? `stitch_wishlist_${user._id}` : null;
@@ -118,14 +118,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
             ? parsed.map((entry) => normalizeWishlistItem(entry as Record<string, unknown>))
             : [];
           setItems(normalized);
-          setWishlistCount(normalized.length); // ✅ use local variable, not stale state
         } else {
           setItems([]);
-          setWishlistCount(0); // ✅ explicit 0
         }
       } catch {
         setItems([]);
-        setWishlistCount(0);
       }
       return;
     }
@@ -137,7 +134,6 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         const serverList = res.wishlist || [];
         const mapped = mapServerWishlist(serverList as unknown[]);
         setItems(mapped);
-        setWishlistCount(mapped.length); // ✅ use returned array length directly
       } catch {
         // On error, fall back to any saved local data
         try {
@@ -148,14 +144,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
               ? parsed.map((entry) => normalizeWishlistItem(entry as Record<string, unknown>))
               : [];
             setItems(normalized);
-            setWishlistCount(normalized.length); // ✅ use local variable
           } else {
             setItems([]);
-            setWishlistCount(0);
           }
         } catch {
           setItems([]);
-          setWishlistCount(0);
         }
       }
     })();
@@ -200,15 +193,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           variantId: normalizedItem.variantId,
           priceWhenAdded: item.price,
         });
-        const res = await userService.getWishlist();
-        const mapped = mapServerWishlist((res.wishlist || []) as unknown[]);
-        setItems(mapped);
-        setWishlistCount(mapped.length);
       } catch {
         // Ignore — optimistic state remains
       }
     })();
-  }, [isLoggedIn, login, setWishlistCount]);
+  }, [isLoggedIn, login]);
 
   const remove = useCallback((id: string) => {
     if (!isLoggedIn) return;
@@ -219,15 +208,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         await userService.removeFromWishlist(normalizedId);
-        const res = await userService.getWishlist();
-        const mapped = mapServerWishlist((res.wishlist || []) as unknown[]);
-        setItems(mapped);
-        setWishlistCount(mapped.length);
       } catch {
         // Ignore
       }
     })();
-  }, [isLoggedIn, setWishlistCount]);
+  }, [isLoggedIn]);
 
   const toggle = useCallback((item: WishlistItem) => {
     if (!isLoggedIn) {

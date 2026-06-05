@@ -1,7 +1,7 @@
 // src/pages/product/[id].tsx
 import React, { useState, useRef } from "react";
 import { useRouter } from "next/router";
-import Head from "next/head";
+import { SeoHead } from "@/components/common/SeoHead";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import { getCategoryLabel, getValidImages } from "@/lib/utils";
@@ -541,12 +541,39 @@ function ProductDetail({
       : null,
   ].filter(Boolean) as Array<{ id: string; title: string; content: React.ReactNode }>;
 
+  const jsonLd = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": product.name,
+    "image": images,
+    "description": product.description,
+    "sku": product.variants[0]?.sku || product._id,
+    "brand": {
+      "@type": "Brand",
+      "name": (typeof product.brand === "object" && product.brand !== null ? product.brand.name : undefined) || "Stitch",
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `https://stitch-shop.com/product/${product._id}`,
+      "priceCurrency": "INR",
+      "price": product.salePrice || product.basePrice,
+      "availability": product.isInStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+    },
+  };
+
   return (
     <>
-      <Head>
-        <title>{product.name} | STITCH</title>
-        <meta name="description" content={product.description} />
-      </Head>
+      <SeoHead 
+        title={product.name} 
+        description={product.description} 
+        image={images[0]} 
+        type="product" 
+        url={`https://stitch-shop.com/product/${product._id}`} 
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       <div className="min-h-screen flex flex-col bg-[#F7F5F2]">
         <main className="flex-1 pt-[var(--h-main-nav,0px)]">

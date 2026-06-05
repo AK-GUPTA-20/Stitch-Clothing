@@ -345,7 +345,8 @@ userSchema.pre("save", async function () {
 /** Auto-generate referral code on first save */
 userSchema.pre("save", function () {                      
   if (!this.referralCode && this.isNew) {
-    this.referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const crypto = require("crypto");
+    this.referralCode = crypto.randomBytes(3).toString("hex").toUpperCase();
   }
 });
 
@@ -372,6 +373,8 @@ userSchema.index({ createdAt: -1 });
 userSchema.index({ lastLoginAt: -1 });                                   
 userSchema.index({ "wishlist.productId": 1 });
 userSchema.index({ deletedAt: 1 }, { sparse: true });                    
+
+userSchema.index({ "otp.purpose": 1, "otp.expiresAt": 1 }, { sparse: true });
 
 const User = model("User", userSchema);
 

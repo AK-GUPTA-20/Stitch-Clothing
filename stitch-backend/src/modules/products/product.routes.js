@@ -40,10 +40,10 @@ const {
 
   updateModel3D,
   updateViewerConfig,
-} = require("../controllers/productController");
+} = require("./product.controller");
 
-const { isAuthenticated, isAuthorized } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { isAuthenticated, isAuthorized } = require("../../middleware/auth");
+const upload = require("../../middleware/upload");
 
 const router = express.Router();
 

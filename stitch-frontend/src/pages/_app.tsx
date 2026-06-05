@@ -13,6 +13,7 @@ import Header from "@/components/Header";
 import { cn } from "@/lib/utils";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { SeoHead } from "@/components/common/SeoHead";
 import { useState } from "react";
 import { ApiError } from "@/lib/api/apiClient";
 import { useConfig } from "@/lib/context/ConfigContext";
@@ -69,6 +70,7 @@ function AppContent({ Component, pageProps }: { Component: AppProps["Component"]
 
   return (
     <>
+      <SeoHead />
       {!isAdmin && <Header />}
       <Component {...pageProps} />
     </>

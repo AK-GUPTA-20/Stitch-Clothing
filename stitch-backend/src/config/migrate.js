@@ -1,5 +1,6 @@
 "use strict";
 
+require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const Seller = require("../models/Seller");
@@ -7,6 +8,9 @@ const mongoose = require("mongoose");
 
 async function runMigration() {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGO_URI);
+    }
     console.log("=====================================");
     console.log("🔍 Running database migrations/cleanup...");
     
@@ -73,7 +77,16 @@ async function runMigration() {
     console.log("=====================================");
   } catch (error) {
     console.error("❌ Migration error:", error);
+  } finally {
+    if (require.main === module) {
+      await mongoose.disconnect();
+      process.exit(0);
+    }
   }
+}
+
+if (require.main === module) {
+  runMigration();
 }
 
 module.exports = runMigration;

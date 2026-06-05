@@ -1,11 +1,11 @@
 "use strict";
 
-const catchAsyncError = require("../middleware/catchAsyncError");
-const ErrorHandler    = require("../middleware/error");
-const Seller          = require("../models/Seller");
-const Order           = require("../models/Order");
-const Product         = require("../models/Product");
-const { uploadToImageKit } = require("../utils/imagekit");
+const asyncHandler = require("../../middleware/asyncHandler");
+const ErrorHandler    = require("../../middleware/error");
+const Seller          = require("../../models/Seller");
+const Order           = require("../../models/Order");
+const Product         = require("../../models/Product");
+const { uploadToImageKit } = require("../../utils/imagekit");
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS
@@ -35,7 +35,7 @@ function _resolveTier(totalOrders) {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all approved active sellers with filters and pagination  GET /api/v1/sellers
-exports.getSellers = catchAsyncError(async (req, res) => {
+exports.getSellers = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 20,
     search, sellerLevel, category,
@@ -83,7 +83,7 @@ exports.getSellers = catchAsyncError(async (req, res) => {
 });
 
 //* Get public seller profile by ID  GET /api/v1/sellers/:id
-exports.getSellerById = catchAsyncError(async (req, res, next) => {
+exports.getSellerById = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({
     _id       : req.params.id,
     isActive  : true,
@@ -96,7 +96,7 @@ exports.getSellerById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get public seller store profile by store slug  GET /api/v1/sellers/slug/:slug
-exports.getSellerBySlug = catchAsyncError(async (req, res, next) => {
+exports.getSellerBySlug = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({
     "store.slug" : req.params.slug.toLowerCase(),
     isActive     : true,
@@ -109,7 +109,7 @@ exports.getSellerBySlug = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get public analytics for a seller store GET /api/v1/sellers/slug/:slug/analytics
-exports.getPublicSellerAnalytics = catchAsyncError(async (req, res, next) => {
+exports.getPublicSellerAnalytics = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({
     "store.slug": req.params.slug.toLowerCase(),
     isActive: true,
@@ -212,7 +212,7 @@ exports.getPublicSellerAnalytics = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Register authenticated user as a seller  POST /api/v1/sellers/register
-exports.registerSeller = catchAsyncError(async (req, res, next) => {
+exports.registerSeller = asyncHandler(async (req, res, next) => {
   const existing = await Seller.findOne({ userId: req.user._id });
   if (existing) {
     return next(new ErrorHandler("You already have a seller account.", 409));
@@ -229,7 +229,7 @@ exports.registerSeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get the authenticated seller's full profile  GET /api/v1/sellers/me
-exports.getMyProfile = catchAsyncError(async (req, res, next) => {
+exports.getMyProfile = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id, deletedAt: null });
   if (!seller) return res.status(200).json({ success: true, data: null });
 
@@ -237,7 +237,7 @@ exports.getMyProfile = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update seller business information (onboarding step 1)  PATCH /api/v1/sellers/me/business
-exports.updateBusinessInfo = catchAsyncError(async (req, res, next) => {
+exports.updateBusinessInfo = asyncHandler(async (req, res, next) => {
   const ALLOWED = [
     "businessName", "businessType", "gstNumber", "gstRegisteredState",
     "panNumber", "website", "businessAddress", "businessEmail",
@@ -269,7 +269,7 @@ exports.updateBusinessInfo = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update seller store profile  PATCH /api/v1/sellers/me/store
-exports.updateStore = catchAsyncError(async (req, res, next) => {
+exports.updateStore = asyncHandler(async (req, res, next) => {
   const ALLOWED_STORE = [
     "name", "slug", "logo", "banner", "description", "tagline",
     "categories", "socialLinks", "returnPolicy", "shippingPolicy", "avgDeliveryDays",
@@ -310,7 +310,7 @@ exports.updateStore = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update seller shipping preferences  PATCH /api/v1/sellers/me/shipping
-exports.updateShippingPreference = catchAsyncError(async (req, res, next) => {
+exports.updateShippingPreference = asyncHandler(async (req, res, next) => {
   const { preferredCourier, handlingTimeDays, dispatchCutoffTime } = req.body;
 
   const updates = {};
@@ -330,7 +330,7 @@ exports.updateShippingPreference = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update seller notification preferences  PATCH /api/v1/sellers/me/notification-preferences
-exports.updateNotificationPreferences = catchAsyncError(async (req, res, next) => {
+exports.updateNotificationPreferences = asyncHandler(async (req, res, next) => {
   const { email, push, sms } = req.body;
   const updates = {};
 
@@ -350,7 +350,7 @@ exports.updateNotificationPreferences = catchAsyncError(async (req, res, next) =
 });
 
 //* Update seller payout schedule preferences  PATCH /api/v1/sellers/me/payout-settings
-exports.updatePayoutSettings = catchAsyncError(async (req, res, next) => {
+exports.updatePayoutSettings = asyncHandler(async (req, res, next) => {
   const { payoutSchedule, minPayoutAmount } = req.body;
 
   const updates = {};
@@ -373,7 +373,7 @@ exports.updatePayoutSettings = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Upload a KYC document  POST /api/v1/sellers/me/documents
-exports.uploadDocument = catchAsyncError(async (req, res, next) => {
+exports.uploadDocument = asyncHandler(async (req, res, next) => {
   let { type, fileUrl, expiresAt } = req.body;
 
   if (req.file) {
@@ -436,7 +436,7 @@ exports.uploadDocument = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get all KYC documents of the seller  GET /api/v1/sellers/me/documents
-exports.getDocuments = catchAsyncError(async (req, res, next) => {
+exports.getDocuments = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("documents");
   if (!seller) return res.status(200).json({ success: true, documents: [] });
 
@@ -444,7 +444,7 @@ exports.getDocuments = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a KYC document (only if pending or rejected)  DELETE /api/v1/sellers/me/documents/:docId
-exports.deleteDocument = catchAsyncError(async (req, res, next) => {
+exports.deleteDocument = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("documents");
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
 
@@ -466,7 +466,7 @@ exports.deleteDocument = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Save or update seller bank details  PUT /api/v1/sellers/me/bank
-exports.updateBankDetails = catchAsyncError(async (req, res, next) => {
+exports.updateBankDetails = asyncHandler(async (req, res, next) => {
   const { accountHolder, accountNumber, ifscCode, bankName, branchName, accountType, upiId } = req.body;
 
   if (!accountHolder || !accountNumber || !ifscCode || !bankName) {
@@ -511,7 +511,7 @@ exports.updateBankDetails = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get seller bank details (masked)  GET /api/v1/sellers/me/bank
-exports.getBankDetails = catchAsyncError(async (req, res, next) => {
+exports.getBankDetails = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("+bankDetails.accountNumber bankDetails");
   if (!seller) return res.status(200).json({ success: true, bankDetails: null });
 
@@ -538,7 +538,7 @@ exports.getBankDetails = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get seller wallet balance and paginated ledger  GET /api/v1/sellers/me/wallet
-exports.getWallet = catchAsyncError(async (req, res, next) => {
+exports.getWallet = asyncHandler(async (req, res, next) => {
   const { page = 1, limit = 20 } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -570,7 +570,7 @@ exports.getWallet = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Request a payout from wallet balance  POST /api/v1/sellers/me/payouts
-exports.requestPayout = catchAsyncError(async (req, res, next) => {
+exports.requestPayout = asyncHandler(async (req, res, next) => {
   const { amount, payoutMethod, notes } = req.body;
 
   if (!amount || amount <= 0) return next(new ErrorHandler("Valid payout amount is required.", 400));
@@ -629,7 +629,7 @@ exports.requestPayout = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get seller's payout history  GET /api/v1/sellers/me/payouts
-exports.getMyPayouts = catchAsyncError(async (req, res, next) => {
+exports.getMyPayouts = asyncHandler(async (req, res, next) => {
   const { page = 1, limit = 10, status } = req.query;
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -656,7 +656,7 @@ exports.getMyPayouts = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all warehouses of the seller  GET /api/v1/sellers/me/warehouses
-exports.getWarehouses = catchAsyncError(async (req, res, next) => {
+exports.getWarehouses = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("warehouses");
   if (!seller) return res.status(200).json({ success: true, warehouses: [] });
 
@@ -664,7 +664,7 @@ exports.getWarehouses = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a new warehouse  POST /api/v1/sellers/me/warehouses
-exports.addWarehouse = catchAsyncError(async (req, res, next) => {
+exports.addWarehouse = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("warehouses");
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
 
@@ -684,7 +684,7 @@ exports.addWarehouse = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update an existing warehouse  PUT /api/v1/sellers/me/warehouses/:warehouseId
-exports.updateWarehouse = catchAsyncError(async (req, res, next) => {
+exports.updateWarehouse = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("warehouses");
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
   if (!seller.warehouses) seller.warehouses = [];
@@ -701,7 +701,7 @@ exports.updateWarehouse = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete (deactivate) a warehouse  DELETE /api/v1/sellers/me/warehouses/:warehouseId
-exports.deleteWarehouse = catchAsyncError(async (req, res, next) => {
+exports.deleteWarehouse = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("warehouses");
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
   if (!seller.warehouses) seller.warehouses = [];
@@ -720,7 +720,7 @@ exports.deleteWarehouse = catchAsyncError(async (req, res, next) => {
 });
 
 //* Set a warehouse as the default  PATCH /api/v1/sellers/me/warehouses/:warehouseId/default
-exports.setDefaultWarehouse = catchAsyncError(async (req, res, next) => {
+exports.setDefaultWarehouse = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select("warehouses");
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
   if (!seller.warehouses) seller.warehouses = [];
@@ -740,7 +740,7 @@ exports.setDefaultWarehouse = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get seller analytics summary from cache  GET /api/v1/sellers/me/analytics
-exports.getSellerAnalytics = catchAsyncError(async (req, res, next) => {
+exports.getSellerAnalytics = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id }).select(
     "analyticsCache totalEarnings totalOrders totalProducts totalRefunds refundRate " +
     "walletBalance pendingPayout sellerLevel commissionRate averageRating totalRatings"
@@ -771,7 +771,7 @@ exports.getSellerAnalytics = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all sellers with filters and pagination (admin)  GET /api/v1/sellers/admin
-exports.adminGetAllSellers = catchAsyncError(async (req, res) => {
+exports.adminGetAllSellers = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 20,
     verificationStatus, sellerLevel, businessType,
@@ -814,7 +814,7 @@ exports.adminGetAllSellers = catchAsyncError(async (req, res) => {
 });
 
 //* Get a single seller by ID in full detail (admin)  GET /api/v1/sellers/admin/:id
-exports.adminGetSeller = catchAsyncError(async (req, res, next) => {
+exports.adminGetSeller = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findById(req.params.id).select("+bankDetails.accountNumber");
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
@@ -822,7 +822,7 @@ exports.adminGetSeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Verify seller — approve or reject with remarks (admin)  PATCH /api/v1/sellers/admin/:id/verify
-exports.verifySeller = catchAsyncError(async (req, res, next) => {
+exports.verifySeller = asyncHandler(async (req, res, next) => {
   const { status, remarks } = req.body;
 
   if (!["approved", "rejected"].includes(status)) {
@@ -848,7 +848,7 @@ exports.verifySeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Suspend a seller account (admin)  PATCH /api/v1/sellers/admin/:id/suspend
-exports.suspendSeller = catchAsyncError(async (req, res, next) => {
+exports.suspendSeller = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
   if (!reason) return next(new ErrorHandler("Suspension reason is required.", 400));
 
@@ -865,7 +865,7 @@ exports.suspendSeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Lift suspension and reinstate a seller (admin)  PATCH /api/v1/sellers/admin/:id/unsuspend
-exports.unsuspendSeller = catchAsyncError(async (req, res, next) => {
+exports.unsuspendSeller = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findById(req.params.id);
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
@@ -879,7 +879,7 @@ exports.unsuspendSeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Soft-delete a seller account (admin)  DELETE /api/v1/sellers/admin/:id
-exports.deleteSeller = catchAsyncError(async (req, res, next) => {
+exports.deleteSeller = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findById(req.params.id);
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
@@ -892,7 +892,7 @@ exports.deleteSeller = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update KYC document status — approve or reject (admin)  PATCH /api/v1/sellers/admin/:id/documents/:docId/status
-exports.updateDocumentStatus = catchAsyncError(async (req, res, next) => {
+exports.updateDocumentStatus = asyncHandler(async (req, res, next) => {
   const { status, remarks } = req.body;
   const ALLOWED = ["pending", "under_review", "approved", "rejected"];
 
@@ -915,7 +915,7 @@ exports.updateDocumentStatus = catchAsyncError(async (req, res, next) => {
 });
 
 //* Verify seller bank account (admin)  PATCH /api/v1/sellers/admin/:id/bank/verify
-exports.verifyBankDetails = catchAsyncError(async (req, res, next) => {
+exports.verifyBankDetails = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findById(req.params.id);
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
@@ -931,7 +931,7 @@ exports.verifyBankDetails = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update seller commission rate (admin)  PATCH /api/v1/sellers/admin/:id/commission
-exports.updateCommissionRate = catchAsyncError(async (req, res, next) => {
+exports.updateCommissionRate = asyncHandler(async (req, res, next) => {
   const { commissionRate } = req.body;
 
   if (commissionRate === undefined || commissionRate < 0 || commissionRate > 100) {
@@ -950,7 +950,7 @@ exports.updateCommissionRate = catchAsyncError(async (req, res, next) => {
 });
 
 //* Promote or demote seller tier level (admin)  PATCH /api/v1/sellers/admin/:id/level
-exports.updateSellerLevel = catchAsyncError(async (req, res, next) => {
+exports.updateSellerLevel = asyncHandler(async (req, res, next) => {
   const { sellerLevel } = req.body;
   const ALLOWED = ["bronze", "silver", "gold", "platinum"];
 
@@ -970,7 +970,7 @@ exports.updateSellerLevel = catchAsyncError(async (req, res, next) => {
 });
 
 //* Process a seller payout request — approve, reject or mark processed (admin)  PATCH /api/v1/sellers/admin/:id/payouts/:payoutId/status
-exports.processPayoutAdmin = catchAsyncError(async (req, res, next) => {
+exports.processPayoutAdmin = asyncHandler(async (req, res, next) => {
   const { status, referenceId, failureReason, taxDeducted, notes } = req.body;
   const ALLOWED = ["pending", "processing", "processed", "failed", "on_hold"];
 
@@ -1025,7 +1025,7 @@ exports.processPayoutAdmin = catchAsyncError(async (req, res, next) => {
 });
 
 //* Manually adjust seller wallet balance (admin)  PATCH /api/v1/sellers/admin/:id/wallet/adjust
-exports.adminAdjustWallet = catchAsyncError(async (req, res, next) => {
+exports.adminAdjustWallet = asyncHandler(async (req, res, next) => {
   const { type, amount, source, description, referenceId } = req.body;
 
   if (!["credit", "debit"].includes(type)) {
@@ -1063,7 +1063,7 @@ exports.adminAdjustWallet = catchAsyncError(async (req, res, next) => {
 });
 
 //* Refresh seller analytics cache (admin)  PATCH /api/v1/sellers/admin/:id/analytics/refresh
-exports.refreshAnalyticsCache = catchAsyncError(async (req, res, next) => {
+exports.refreshAnalyticsCache = asyncHandler(async (req, res, next) => {
   const {
     totalRevenue30d, totalOrders30d, conversionRate,
     avgOrderValue, topProductId, pendingOrders, cancelRate,
@@ -1096,7 +1096,7 @@ exports.refreshAnalyticsCache = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get seller dashboard summary  GET /api/v1/sellers/me/dashboard
-exports.getSellerDashboard = catchAsyncError(async (req, res, next) => {
+exports.getSellerDashboard = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id, deletedAt: null });
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 

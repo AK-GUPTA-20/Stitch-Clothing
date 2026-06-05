@@ -1,11 +1,11 @@
 "use strict";
 
-const catchAsyncError = require("../middleware/catchAsyncError");
-const ErrorHandler    = require("../middleware/error");
-const Product         = require("../models/Product");
-const Order           = require("../models/Order");
-const Seller          = require("../models/Seller");
-const User            = require("../models/User");
+const asyncHandler = require("../../middleware/asyncHandler");
+const ErrorHandler    = require("../../middleware/error");
+const Product         = require("../../models/Product");
+const Order           = require("../../models/Order");
+const Seller          = require("../../models/Seller");
+const User            = require("../../models/User");
 const mongoose        = require("mongoose");
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ async function _processRefund(order, session, { amount: explicitAmount } = {}) {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Create a new order  POST /api/v1/orders
-exports.createOrder = catchAsyncError(async (req, res, next) => {
+exports.createOrder = asyncHandler(async (req, res, next) => {
   if (!req.body.items || req.body.items.length === 0) {
     return next(new ErrorHandler("Order must contain at least one item.", 400));
   }
@@ -211,7 +211,7 @@ exports.createOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get authenticated user's orders with filter and pagination  GET /api/v1/orders/my
-exports.getMyOrders = catchAsyncError(async (req, res) => {
+exports.getMyOrders = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 10,
     orderStatus, paymentStatus,
@@ -251,7 +251,7 @@ exports.getMyOrders = catchAsyncError(async (req, res) => {
 });
 
 //* Get a single order by ID (user owns it or admin)  GET /api/v1/orders/:id
-exports.getOrderById = catchAsyncError(async (req, res, next) => {
+exports.getOrderById = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id)
     .populate("items.productId", "name slug images")
     .populate("items.sellerId",  "name logo");
@@ -269,7 +269,7 @@ exports.getOrderById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get order by human-readable orderId string  GET /api/v1/orders/ref/:orderId
-exports.getOrderByRef = catchAsyncError(async (req, res, next) => {
+exports.getOrderByRef = asyncHandler(async (req, res, next) => {
   const order = await Order.findOne({ orderId: req.params.orderId.toUpperCase() });
 
   if (!order) return next(new ErrorHandler("Order not found.", 404));
@@ -283,7 +283,7 @@ exports.getOrderByRef = catchAsyncError(async (req, res, next) => {
 });
 
 //* Cancel an order (user, only before it is shipped)  PATCH /api/v1/orders/:id/cancel
-exports.cancelOrder = catchAsyncError(async (req, res, next) => {
+exports.cancelOrder = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
   const order = await Order.findById(req.params.id);
 
@@ -328,7 +328,7 @@ exports.cancelOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Cancel a single item in an order (user, before shipped)  PATCH /api/v1/orders/:id/items/:itemId/cancel
-exports.cancelOrderItem = catchAsyncError(async (req, res, next) => {
+exports.cancelOrderItem = asyncHandler(async (req, res, next) => {
   const { quantity, reason } = req.body;
   const order = await Order.findById(req.params.id);
 
@@ -389,7 +389,7 @@ exports.cancelOrderItem = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Request a return or exchange for a delivered order  POST /api/v1/orders/:id/return
-exports.requestReturn = catchAsyncError(async (req, res, next) => {
+exports.requestReturn = asyncHandler(async (req, res, next) => {
   const { type, reason, description, images, pickupDate, pickupAddress, exchangeProductId, exchangeVariantId } = req.body;
 
   const order = await Order.findById(req.params.id);
@@ -426,7 +426,7 @@ exports.requestReturn = catchAsyncError(async (req, res, next) => {
 });
 
 //* Request a refund for an order or specific items  POST /api/v1/orders/:id/refund
-exports.requestRefund = catchAsyncError(async (req, res, next) => {
+exports.requestRefund = asyncHandler(async (req, res, next) => {
   const { reason, description, items, images, refundTo } = req.body;
 
   if (!reason) return next(new ErrorHandler("reason is required.", 400));
@@ -485,7 +485,7 @@ exports.requestRefund = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get invoice download URL for an order  GET /api/v1/orders/:id/invoice
-exports.getInvoice = catchAsyncError(async (req, res, next) => {
+exports.getInvoice = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id).select("userId invoice orderId payment.status");
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -505,7 +505,7 @@ exports.getInvoice = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Verify and capture gateway payment (Razorpay / Stripe)  POST /api/v1/orders/:id/payment/verify
-exports.verifyPayment = catchAsyncError(async (req, res, next) => {
+exports.verifyPayment = asyncHandler(async (req, res, next) => {
   const { gatewayOrderId, gatewayPaymentId, gatewaySignature, transactionId } = req.body;
 
   const order = await Order.findById(req.params.id);
@@ -552,7 +552,7 @@ exports.verifyPayment = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update payment status manually (admin)  PATCH /api/v1/orders/:id/payment/status
-exports.updatePaymentStatus = catchAsyncError(async (req, res, next) => {
+exports.updatePaymentStatus = asyncHandler(async (req, res, next) => {
   const { status, transactionId, failureReason, failureCode } = req.body;
 
   const ALLOWED = ["pending", "authorized", "captured", "paid", "failed", "refunded", "partial_refund", "cancelled"];
@@ -588,7 +588,7 @@ exports.updatePaymentStatus = catchAsyncError(async (req, res, next) => {
 });
 
 //* Verify COD payment on delivery (admin / delivery agent)  PATCH /api/v1/orders/:id/payment/cod/verify
-exports.verifyCOD = catchAsyncError(async (req, res, next) => {
+exports.verifyCOD = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -626,7 +626,7 @@ exports.verifyCOD = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all orders for the authenticated seller  GET /api/v1/orders/seller
-exports.getSellerOrders = catchAsyncError(async (req, res) => {
+exports.getSellerOrders = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 20,
     orderStatus, paymentStatus,
@@ -669,7 +669,7 @@ exports.getSellerOrders = catchAsyncError(async (req, res) => {
 });
 
 //* Seller confirms the order  PATCH /api/v1/orders/:id/confirm
-exports.confirmOrder = catchAsyncError(async (req, res, next) => {
+exports.confirmOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -690,7 +690,7 @@ exports.confirmOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller processes the order  PATCH /api/v1/orders/:id/process
-exports.processOrder = catchAsyncError(async (req, res, next) => {
+exports.processOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -710,7 +710,7 @@ exports.processOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller marks order as packed  PATCH /api/v1/orders/:id/pack
-exports.markPacked = catchAsyncError(async (req, res, next) => {
+exports.markPacked = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -731,7 +731,7 @@ exports.markPacked = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller dispatches order with tracking details  PATCH /api/v1/orders/:id/dispatch
-exports.dispatchOrder = catchAsyncError(async (req, res, next) => {
+exports.dispatchOrder = asyncHandler(async (req, res, next) => {
   const { courier, labelUrl, trackingUrl, estimatedDelivery } = req.body;
   const awb = req.body.awb || req.body.awbNumber;
 
@@ -768,7 +768,7 @@ exports.dispatchOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update tracking info for a dispatched order  PATCH /api/v1/orders/:id/tracking
-exports.updateTracking = catchAsyncError(async (req, res, next) => {
+exports.updateTracking = asyncHandler(async (req, res, next) => {
   const { courier, labelUrl, trackingUrl, estimatedDelivery } = req.body;
   const awb = req.body.awb || req.body.awbNumber;
 
@@ -788,7 +788,7 @@ exports.updateTracking = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller cancels an order  PATCH /api/v1/orders/:id/seller/cancel
-exports.sellerCancelOrder = catchAsyncError(async (req, res, next) => {
+exports.sellerCancelOrder = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
   if (!reason) return next(new ErrorHandler("Cancellation reason is required.", 400));
 
@@ -836,7 +836,7 @@ exports.sellerCancelOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller marks order as delivered (e.g. self-shipping)  PATCH /api/v1/orders/:id/seller/deliver
-exports.sellerDeliverOrder = catchAsyncError(async (req, res, next) => {
+exports.sellerDeliverOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -874,7 +874,7 @@ exports.sellerDeliverOrder = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller generically updates order status  PATCH /api/v1/orders/:id/seller/status
-exports.sellerUpdateStatus = catchAsyncError(async (req, res, next) => {
+exports.sellerUpdateStatus = asyncHandler(async (req, res, next) => {
   const { status } = req.body;
   const VALID = [
     "pending", "confirmed", "processing", "packed", "dispatched", "shipped",
@@ -927,7 +927,7 @@ exports.sellerUpdateStatus = catchAsyncError(async (req, res, next) => {
 });
 
 //* Seller updates return request status  PATCH /api/v1/orders/:id/seller/return
-exports.sellerUpdateReturnStatus = catchAsyncError(async (req, res, next) => {
+exports.sellerUpdateReturnStatus = asyncHandler(async (req, res, next) => {
   const { status, adminNote, pickupDate, resolvedAt } = req.body;
 
   const ALLOWED = ["requested", "pickup_scheduled", "picked_up", "received", "approved", "rejected", "completed"];
@@ -978,7 +978,7 @@ exports.sellerUpdateReturnStatus = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all orders with full filters and pagination (admin)  GET /api/v1/orders
-exports.getAllOrders = catchAsyncError(async (req, res) => {
+exports.getAllOrders = asyncHandler(async (req, res) => {
   const {
     page = 1, limit = 20,
     orderStatus, paymentStatus, paymentMethod,
@@ -1035,7 +1035,7 @@ exports.getAllOrders = catchAsyncError(async (req, res) => {
 });
 
 //* Update order status to any valid enum value (admin)  PATCH /api/v1/orders/:id/status
-exports.updateOrderStatus = catchAsyncError(async (req, res, next) => {
+exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
   const { status, note } = req.body;
 
   const VALID = [
@@ -1086,7 +1086,7 @@ exports.updateOrderStatus = catchAsyncError(async (req, res, next) => {
 });
 
 //* Mark order as delivered (admin / delivery agent)  PATCH /api/v1/orders/:id/deliver
-exports.markDelivered = catchAsyncError(async (req, res, next) => {
+exports.markDelivered = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -1120,7 +1120,7 @@ exports.markDelivered = catchAsyncError(async (req, res, next) => {
 });
 
 //* Generate and attach invoice to an order (admin / seller)  PATCH /api/v1/orders/:id/invoice
-exports.generateInvoice = catchAsyncError(async (req, res, next) => {
+exports.generateInvoice = asyncHandler(async (req, res, next) => {
   const { number, url } = req.body;
   if (!url) return next(new ErrorHandler("Invoice URL is required.", 400));
 
@@ -1138,7 +1138,7 @@ exports.generateInvoice = catchAsyncError(async (req, res, next) => {
 });
 
 //* Admin cancels an order with reason  PATCH /api/v1/orders/:id/admin/cancel
-exports.adminCancelOrder = catchAsyncError(async (req, res, next) => {
+exports.adminCancelOrder = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
   if (!reason) return next(new ErrorHandler("Cancellation reason is required.", 400));
 
@@ -1185,7 +1185,7 @@ exports.adminCancelOrder = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all refund requests for an order (admin)  GET /api/v1/orders/:id/refunds
-exports.getRefunds = catchAsyncError(async (req, res, next) => {
+exports.getRefunds = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id).select("orderId refunds userId");
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
@@ -1198,7 +1198,7 @@ exports.getRefunds = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update refund status — approve, reject, process (admin)  PATCH /api/v1/orders/:id/refunds/:refundId/status
-exports.updateRefundStatus = catchAsyncError(async (req, res, next) => {
+exports.updateRefundStatus = asyncHandler(async (req, res, next) => {
   const { status, adminNote, rejectionReason, gatewayRefundId } = req.body;
 
   const ALLOWED = ["requested", "under_review", "approved", "rejected", "processing", "processed", "failed"];
@@ -1251,7 +1251,7 @@ exports.updateRefundStatus = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Update return / exchange request status (admin)  PATCH /api/v1/orders/:id/return/status
-exports.updateReturnStatus = catchAsyncError(async (req, res, next) => {
+exports.updateReturnStatus = asyncHandler(async (req, res, next) => {
   const { status, adminNote, pickupDate, resolvedAt } = req.body;
 
   const ALLOWED = ["requested", "pickup_scheduled", "picked_up", "received", "approved", "rejected", "completed"];
@@ -1301,7 +1301,7 @@ exports.updateReturnStatus = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get order analytics summary (admin)  GET /api/v1/orders/analytics
-exports.getOrderAnalytics = catchAsyncError(async (req, res) => {
+exports.getOrderAnalytics = asyncHandler(async (req, res) => {
   const { from, to } = req.query;
 
   const dateFilter = {};

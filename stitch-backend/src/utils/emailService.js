@@ -23,7 +23,6 @@ const sendEmail = async (options) => {
       return false;
     }
 
-    console.log(`Message sent via Resend: ${data.data.id}`);
     return true;
   } catch (error) {
     console.error("Email sending failed:", error);

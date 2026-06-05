@@ -1,10 +1,10 @@
 const jwt = require("jsonwebtoken");
-const catchAsyncError = require("./catchAsyncError");
+const asyncHandler = require("./asyncHandler");
 const ErrorHandler = require("./error");
 const User = require("../models/User");
 
-// Check if User is Authenticated
-const isAuthenticated = catchAsyncError(async (req, res, next) => {
+// Helper to extract token and user
+const getAuthUser = async (req) => {
   let token = null;
 
   const authHeader = req.headers.authorization;
@@ -17,15 +17,33 @@ const isAuthenticated = catchAsyncError(async (req, res, next) => {
   }
 
   if (!token) {
-    return next(
-      new ErrorHandler("Please login to access this resource.", 401)
-    );
+    return { token: null, user: null };
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+  const user = await User.findById(decoded.id);
 
-    const user = await User.findById(decoded.id);
+  if (user && user.role === "seller") {
+    const Seller = require("../models/Seller");
+    const seller = await Seller.findOne({ userId: user._id });
+    if (seller) {
+      user.sellerId = seller._id;
+    }
+  }
+
+  return { token, user };
+};
+
+// Check if User is Authenticated
+const isAuthenticated = asyncHandler(async (req, res, next) => {
+  try {
+    const { token, user } = await getAuthUser(req);
+
+    if (!token) {
+      return next(
+        new ErrorHandler("Please login to access this resource.", 401)
+      );
+    }
 
     if (!user) {
       return next(
@@ -33,16 +51,7 @@ const isAuthenticated = catchAsyncError(async (req, res, next) => {
       );
     }
 
-    if (user.role === "seller") {
-      const Seller = require("../models/Seller");
-      const seller = await Seller.findOne({ userId: user._id });
-      if (seller) {
-        user.sellerId = seller._id;
-      }
-    }
-
     req.user = user;
-
     next();
   } catch (error) {
     return next(
@@ -54,44 +63,19 @@ const isAuthenticated = catchAsyncError(async (req, res, next) => {
   }
 });
 
-const optionalAuth = catchAsyncError(async (req, res, next) => {
-  let token = null;
-
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.substring(7);
-  }
-
-  if (!token) {
-    token = req.cookies?.token;
-  }
-
-  if (!token) {
-    return next();
-  }
-
+const optionalAuth = asyncHandler(async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-    const user = await User.findById(decoded.id);
-
+    const { token, user } = await getAuthUser(req);
     if (user) {
-      if (user.role === "seller") {
-        const Seller = require("../models/Seller");
-        const seller = await Seller.findOne({ userId: user._id });
-        if (seller) {
-          user.sellerId = seller._id;
-        }
-      }
       req.user = user;
     }
   } catch (error) {
     // Ignore invalid/expired tokens for public endpoints.
   }
-
   next();
 });
 
-const isAdmin = catchAsyncError(async (req, res, next) => {
+const isAdmin = asyncHandler(async (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return next(
       new ErrorHandler(
@@ -105,7 +89,7 @@ const isAdmin = catchAsyncError(async (req, res, next) => {
 });
 
 const isAuthorized = (roles) => {
-  return catchAsyncError(async (req, res, next) => {
+  return asyncHandler(async (req, res, next) => {
     if (!req.user) {
       return next(new ErrorHandler("Please login to access this resource.", 401));
     }
@@ -125,7 +109,7 @@ const isAuthorized = (roles) => {
   });
 };
 
-const isModerator = catchAsyncError(async (req, res, next) => {
+const isModerator = asyncHandler(async (req, res, next) => {
   if (!req.user || (req.user.role !== "moderator" && req.user.role !== "admin")) {
     return next(
       new ErrorHandler(

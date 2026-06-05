@@ -71,8 +71,8 @@ export function toQuery(params?: Record<string, unknown>): string {
 // ── Currency Formatting ───────────────────────────────────────────────────────
 /**
  * Formats a number as an Indian Rupee amount.
- * @example formatCurrency(1299) → '$1,299'
- * @example formatCurrency(1299.5) → '$1,299.50'
+ * @example formatCurrency(1299) → '₹1,299.00'
+ * @example formatCurrency(1299.5) → '₹1,299.50'
  */
 export function formatCurrency(
   amount: number,
@@ -140,6 +140,7 @@ export function formatRelativeDate(dateStr: string | undefined | null): string {
  *
  * WARNING: This is NOT a cryptographic hash and ONLY suitable for
  * deterministic display IDs in offline/demo mode — never for real data.
+ * @internal
  */
 export function getDeterministicObjectId(str: string): string {
   let hash = 0;

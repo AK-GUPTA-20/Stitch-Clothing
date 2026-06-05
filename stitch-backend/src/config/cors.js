@@ -3,8 +3,6 @@ const getCorsOptions = () => {
     process.env.FRONTEND_URL,
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://stitch-clothing.vercel.app",
-    
   ].filter(Boolean);
 
   return {
@@ -13,7 +11,9 @@ const getCorsOptions = () => {
       if (!origin || trustedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.warn(`CORS rejected origin: ${origin}`);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(`CORS rejected origin: ${origin}`);
+        }
         callback(new Error("Not allowed by CORS"));
       }
     },

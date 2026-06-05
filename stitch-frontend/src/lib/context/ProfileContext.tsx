@@ -11,8 +11,6 @@ interface ProfileContextType {
   user: User | null;
   login: () => void;
   logout: () => void;
-  wishlistCount: number;
-  setWishlistCount: (n: number) => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -20,7 +18,6 @@ const ProfileContext = createContext<ProfileContextType | null>(null);
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { user, logout: authLogout, isLoading: authIsLoading } = useAuth();
   const router = useRouter();
-  const [wishlistCount, setWishlistCount] = useState(0);
 
   const isLoggedIn = !!user;
 
@@ -48,8 +45,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         user,
         login,
         logout,
-        wishlistCount,
-        setWishlistCount,
       }}
     >
       {children}

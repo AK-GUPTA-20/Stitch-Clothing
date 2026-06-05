@@ -317,6 +317,7 @@ orderSchema.pre("save", function () {
   }
 });
 
+orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ userId: 1 });
 orderSchema.index({ sellerId: 1 });
 orderSchema.index({ orderStatus: 1 });

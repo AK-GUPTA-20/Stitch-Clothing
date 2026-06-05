@@ -1,6 +1,6 @@
 "use strict";
 
-const catchAsyncError = require("../middleware/catchAsyncError");
+const asyncHandler = require("../middleware/asyncHandler");
 const ErrorHandler    = require("../middleware/error");
 const Shipping        = require("../models/Shipping");
 
@@ -48,7 +48,7 @@ function _calculateCost(profile, weightGrams) {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all active shipping profiles with optional filters  GET /api/v1/shipping
-exports.getShippingProfiles = catchAsyncError(async (req, res) => {
+exports.getShippingProfiles = asyncHandler(async (req, res) => {
   const { isCODAvailable, isDefault, page = 1, limit = 20 } = req.query;
 
   const filter = { isActive: true };
@@ -77,7 +77,7 @@ exports.getShippingProfiles = catchAsyncError(async (req, res) => {
 });
 
 //* Get a single shipping profile by ID  GET /api/v1/shipping/:id
-exports.getShippingProfileById = catchAsyncError(async (req, res, next) => {
+exports.getShippingProfileById = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("-shipments -integrations");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -85,7 +85,7 @@ exports.getShippingProfileById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Check if a pincode is serviceable under any active shipping profile  GET /api/v1/shipping/check-pincode
-exports.checkPincodeAvailability = catchAsyncError(async (req, res, next) => {
+exports.checkPincodeAvailability = asyncHandler(async (req, res, next) => {
   const { pincode } = req.query;
   if (!pincode) return next(new ErrorHandler("pincode query param is required.", 400));
 
@@ -110,7 +110,7 @@ exports.checkPincodeAvailability = catchAsyncError(async (req, res, next) => {
 });
 
 //* Estimate shipping cost for a given weight and pincode  GET /api/v1/shipping/estimate
-exports.estimateShippingCost = catchAsyncError(async (req, res, next) => {
+exports.estimateShippingCost = asyncHandler(async (req, res, next) => {
   const { pincode, weightGrams, orderAmount } = req.query;
 
   if (!pincode || !weightGrams) {
@@ -167,7 +167,7 @@ exports.estimateShippingCost = catchAsyncError(async (req, res, next) => {
 });
 
 //* Track a shipment by AWB number  GET /api/v1/shipping/track/:awb
-exports.trackShipmentByAWB = catchAsyncError(async (req, res, next) => {
+exports.trackShipmentByAWB = asyncHandler(async (req, res, next) => {
   const profile = await Shipping.findOne({ "shipments.awb": req.params.awb })
     .select("shipments.$ name code");
 
@@ -181,7 +181,7 @@ exports.trackShipmentByAWB = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get shipment details by order ID  GET /api/v1/shipping/order/:orderId
-exports.getShipmentByOrderId = catchAsyncError(async (req, res, next) => {
+exports.getShipmentByOrderId = asyncHandler(async (req, res, next) => {
   const profile = await Shipping.findOne({ "shipments.orderId": req.params.orderId })
     .select("name code shipments");
 
@@ -198,7 +198,7 @@ exports.getShipmentByOrderId = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Create a new shipping profile  POST /api/v1/shipping
-exports.createShippingProfile = catchAsyncError(async (req, res, next) => {
+exports.createShippingProfile = asyncHandler(async (req, res, next) => {
   const exists = await Shipping.findOne({ code: req.body.code?.toUpperCase() });
   if (exists) return next(new ErrorHandler(`Shipping profile code "${req.body.code}" already exists.`, 409));
 
@@ -212,7 +212,7 @@ exports.createShippingProfile = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update core fields of a shipping profile  PUT /api/v1/shipping/:id
-exports.updateShippingProfile = catchAsyncError(async (req, res, next) => {
+exports.updateShippingProfile = asyncHandler(async (req, res, next) => {
   const PROTECTED = ["rateSlabs", "regions", "integrations", "shipments", "blacklistedPincodes"];
   PROTECTED.forEach((f) => delete req.body[f]);
 
@@ -232,7 +232,7 @@ exports.updateShippingProfile = catchAsyncError(async (req, res, next) => {
 });
 
 //* Soft-delete a shipping profile  DELETE /api/v1/shipping/:id
-exports.deleteShippingProfile = catchAsyncError(async (req, res, next) => {
+exports.deleteShippingProfile = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id);
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -245,7 +245,7 @@ exports.deleteShippingProfile = catchAsyncError(async (req, res, next) => {
 });
 
 //* Set a profile as the platform default  PATCH /api/v1/shipping/:id/default
-exports.setDefaultProfile = catchAsyncError(async (req, res, next) => {
+exports.setDefaultProfile = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id);
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
   if (!shipping.isActive) return next(new ErrorHandler("Cannot set an inactive profile as default.", 400));
@@ -258,7 +258,7 @@ exports.setDefaultProfile = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle a shipping profile active or inactive  PATCH /api/v1/shipping/:id/toggle
-exports.toggleShippingProfile = catchAsyncError(async (req, res, next) => {
+exports.toggleShippingProfile = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id);
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
   if (shipping.isDefault && shipping.isActive) {
@@ -276,7 +276,7 @@ exports.toggleShippingProfile = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all coverage regions for a shipping profile  GET /api/v1/shipping/:id/regions
-exports.getRegions = catchAsyncError(async (req, res, next) => {
+exports.getRegions = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("regions blacklistedPincodes name");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -284,7 +284,7 @@ exports.getRegions = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a coverage region to a shipping profile  POST /api/v1/shipping/:id/regions
-exports.addRegion = catchAsyncError(async (req, res, next) => {
+exports.addRegion = asyncHandler(async (req, res, next) => {
   const { country = "IN", states, zones, pincodes, excludedPincodes } = req.body;
 
   const shipping = await Shipping.findById(req.params.id).select("regions");
@@ -297,7 +297,7 @@ exports.addRegion = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a region by array index  PUT /api/v1/shipping/:id/regions/:index
-exports.updateRegion = catchAsyncError(async (req, res, next) => {
+exports.updateRegion = asyncHandler(async (req, res, next) => {
   const idx      = parseInt(req.params.index, 10);
   const shipping = await Shipping.findById(req.params.id).select("regions");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
@@ -314,7 +314,7 @@ exports.updateRegion = catchAsyncError(async (req, res, next) => {
 });
 
 //* Remove a region by array index  DELETE /api/v1/shipping/:id/regions/:index
-exports.removeRegion = catchAsyncError(async (req, res, next) => {
+exports.removeRegion = asyncHandler(async (req, res, next) => {
   const idx      = parseInt(req.params.index, 10);
   const shipping = await Shipping.findById(req.params.id).select("regions");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
@@ -329,7 +329,7 @@ exports.removeRegion = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add or remove pincodes from the blacklist  PATCH /api/v1/shipping/:id/blacklist
-exports.updateBlacklist = catchAsyncError(async (req, res, next) => {
+exports.updateBlacklist = asyncHandler(async (req, res, next) => {
   const { add = [], remove = [] } = req.body;
 
   if (!Array.isArray(add) || !Array.isArray(remove)) {
@@ -354,7 +354,7 @@ exports.updateBlacklist = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all rate slabs for a shipping profile  GET /api/v1/shipping/:id/rates
-exports.getRateSlabs = catchAsyncError(async (req, res, next) => {
+exports.getRateSlabs = asyncHandler(async (req, res, next) => {
   const { courier, isActive } = req.query;
 
   const shipping = await Shipping.findById(req.params.id).select("rateSlabs name");
@@ -368,7 +368,7 @@ exports.getRateSlabs = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a new rate slab to a shipping profile  POST /api/v1/shipping/:id/rates
-exports.addRateSlab = catchAsyncError(async (req, res, next) => {
+exports.addRateSlab = asyncHandler(async (req, res, next) => {
   if (req.body.minWeight === undefined || req.body.maxWeight === undefined || req.body.baseCharge === undefined) {
     return next(new ErrorHandler("minWeight, maxWeight and baseCharge are required.", 400));
   }
@@ -390,7 +390,7 @@ exports.addRateSlab = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update an existing rate slab  PUT /api/v1/shipping/:id/rates/:slabId
-exports.updateRateSlab = catchAsyncError(async (req, res, next) => {
+exports.updateRateSlab = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("rateSlabs");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -406,7 +406,7 @@ exports.updateRateSlab = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle a rate slab active or inactive  PATCH /api/v1/shipping/:id/rates/:slabId/toggle
-exports.toggleRateSlab = catchAsyncError(async (req, res, next) => {
+exports.toggleRateSlab = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("rateSlabs");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -420,7 +420,7 @@ exports.toggleRateSlab = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a rate slab  DELETE /api/v1/shipping/:id/rates/:slabId
-exports.deleteRateSlab = catchAsyncError(async (req, res, next) => {
+exports.deleteRateSlab = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("rateSlabs");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -438,7 +438,7 @@ exports.deleteRateSlab = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Update express shipping configuration  PATCH /api/v1/shipping/:id/express
-exports.updateExpressShipping = catchAsyncError(async (req, res, next) => {
+exports.updateExpressShipping = asyncHandler(async (req, res, next) => {
   const { available, charge, estimatedDays, cutoffTime } = req.body;
 
   const updates = {};
@@ -459,7 +459,7 @@ exports.updateExpressShipping = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update COD rules for a shipping profile  PATCH /api/v1/shipping/:id/cod
-exports.updateCODSettings = catchAsyncError(async (req, res, next) => {
+exports.updateCODSettings = asyncHandler(async (req, res, next) => {
   const { isCODAvailable, codChargeType, codCharge, maxCODOrderValue } = req.body;
 
   const updates = {};
@@ -484,7 +484,7 @@ exports.updateCODSettings = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get all courier integrations (secrets masked)  GET /api/v1/shipping/:id/integrations
-exports.getIntegrations = catchAsyncError(async (req, res, next) => {
+exports.getIntegrations = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("integrations name");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -498,7 +498,7 @@ exports.getIntegrations = catchAsyncError(async (req, res, next) => {
 });
 
 //* Add a new courier integration  POST /api/v1/shipping/:id/integrations
-exports.addIntegration = catchAsyncError(async (req, res, next) => {
+exports.addIntegration = asyncHandler(async (req, res, next) => {
   if (!req.body.provider) return next(new ErrorHandler("provider is required.", 400));
 
   const shipping = await Shipping.findById(req.params.id).select("integrations");
@@ -517,7 +517,7 @@ exports.addIntegration = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update a courier integration's credentials or settings  PUT /api/v1/shipping/:id/integrations/:integrationId
-exports.updateIntegration = catchAsyncError(async (req, res, next) => {
+exports.updateIntegration = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("integrations");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -536,7 +536,7 @@ exports.updateIntegration = catchAsyncError(async (req, res, next) => {
 });
 
 //* Toggle a courier integration active or inactive  PATCH /api/v1/shipping/:id/integrations/:integrationId/toggle
-exports.toggleIntegration = catchAsyncError(async (req, res, next) => {
+exports.toggleIntegration = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("integrations");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -550,7 +550,7 @@ exports.toggleIntegration = catchAsyncError(async (req, res, next) => {
 });
 
 //* Ping integration to verify credentials are working  POST /api/v1/shipping/:id/integrations/:integrationId/test
-exports.testIntegration = catchAsyncError(async (req, res, next) => {
+exports.testIntegration = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("integrations");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -571,7 +571,7 @@ exports.testIntegration = catchAsyncError(async (req, res, next) => {
 });
 
 //* Delete a courier integration  DELETE /api/v1/shipping/:id/integrations/:integrationId
-exports.deleteIntegration = catchAsyncError(async (req, res, next) => {
+exports.deleteIntegration = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("integrations");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -591,7 +591,7 @@ exports.deleteIntegration = catchAsyncError(async (req, res, next) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Get paginated shipments for a profile with filters  GET /api/v1/shipping/:id/shipments
-exports.getShipments = catchAsyncError(async (req, res, next) => {
+exports.getShipments = asyncHandler(async (req, res, next) => {
   const { status, isCOD, from, to, page = 1, limit = 20 } = req.query;
 
   const shipping = await Shipping.findById(req.params.id).select("shipments name");
@@ -619,7 +619,7 @@ exports.getShipments = catchAsyncError(async (req, res, next) => {
 });
 
 //* Create a shipment entry under a shipping profile  POST /api/v1/shipping/:id/shipments
-exports.createShipment = catchAsyncError(async (req, res, next) => {
+exports.createShipment = asyncHandler(async (req, res, next) => {
   const { orderId, sellerId, userId, courier, awb, weight, dimensions, deliveryAddress, isCOD, codAmount, pickupDate, estimatedDelivery } = req.body;
 
   if (!orderId || !sellerId || !userId) {
@@ -658,7 +658,7 @@ exports.createShipment = catchAsyncError(async (req, res, next) => {
 });
 
 //* Get a single shipment by ID  GET /api/v1/shipping/:id/shipments/:shipmentId
-exports.getShipmentById = catchAsyncError(async (req, res, next) => {
+exports.getShipmentById = asyncHandler(async (req, res, next) => {
   const shipping = await Shipping.findById(req.params.id).select("shipments name");
   if (!shipping) return next(new ErrorHandler("Shipping profile not found.", 404));
 
@@ -669,7 +669,7 @@ exports.getShipmentById = catchAsyncError(async (req, res, next) => {
 });
 
 //* Update shipment status and push to status history  PATCH /api/v1/shipping/:id/shipments/:shipmentId/status
-exports.updateShipmentStatus = catchAsyncError(async (req, res, next) => {
+exports.updateShipmentStatus = asyncHandler(async (req, res, next) => {
   const { status, awb, labelUrl, invoiceUrl, courierOrderId, deliveredAt, pickupDate, estimatedDelivery } = req.body;
 
   const VALID = ["label_created", "pickup_scheduled", "picked_up", "in_transit", "out_for_delivery", "delivered", "delivery_failed", "rto_initiated", "rto_delivered"];

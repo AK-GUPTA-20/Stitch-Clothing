@@ -1,10 +1,10 @@
 const express = require("express");
 
-const userRoutes = require("./userRoutes");
-const sellerRoutes = require("./sellerRoutes");
-const productRoutes = require("./productRoutes");
+const userRoutes = require("../modules/users/user.routes");
+const sellerRoutes = require("../modules/sellers/seller.routes");
+const productRoutes = require("../modules/products/product.routes");
 const shippingRoutes = require("./shippingRoutes");
-const orderRoutes = require("./orderRoutes");
+const orderRoutes = require("../modules/orders/order.routes");
 const promotionRoutes = require("./promotionRoutes");
 const configRoutes = require("./configRoutes");
 

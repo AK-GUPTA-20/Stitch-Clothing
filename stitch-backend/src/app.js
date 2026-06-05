@@ -15,7 +15,6 @@ app.use(cookieParser());
 app.use(helmet({
   crossOriginResourcePolicy: false, // Ensure statically served images are loadable by the frontend
 }));
-// mongo sanitize removed
 app.use(cors(getCorsOptions()));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
@@ -27,6 +26,21 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Too many login/register attempts from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/v1/user/login", authLimiter);
+app.use("/api/v1/user/register", authLimiter);
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
 // Import Routes
 const routes = require("./routes");
