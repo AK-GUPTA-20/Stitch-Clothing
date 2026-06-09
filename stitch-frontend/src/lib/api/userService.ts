@@ -187,7 +187,7 @@ export const userService = {
   // Admin Operations
   // ====================
   adminGetUsers: (query = '') =>
-    apiClient.get<BasicResponse & { users: User[]; total: number }>(
+    apiClient.get<BasicResponse & { users: User[]; total: number; activeTotal: number; suspendedTotal: number }>(
       `/api/v1/user/admin${query ? `?${query}` : ''}`
     ),
   adminGetUser: (userId: string) =>

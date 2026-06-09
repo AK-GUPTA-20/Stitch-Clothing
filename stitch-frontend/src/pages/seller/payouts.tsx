@@ -42,7 +42,7 @@ export default function PayoutsPage() {
             <form onSubmit={handleRequest} className="space-y-4">
               <div className="flex gap-4 items-end">
                 <div className="space-y-2 flex-1">
-                  <label className="text-sm font-medium">Amount ($)</label>
+                  <label className="text-sm font-medium">Amount (₹)</label>
                   <input 
                     type="number" 
                     step="0.01"

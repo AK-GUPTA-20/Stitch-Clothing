@@ -92,15 +92,15 @@ export default function ShippingSettings() {
               <input type="text" className={inputClass} value={form.defaultCourier} onChange={e => setForm({...form, defaultCourier: e.target.value})} placeholder="e.g. BlueDart" />
             </div>
             <div>
-              <label className={labelClass}>Free Shipping Above ($)</label>
+              <label className={labelClass}>Free Shipping Above (₹)</label>
               <input type="number" className={inputClass} value={form.freeShippingAbove} onChange={e => setForm({...form, freeShippingAbove: Number(e.target.value)})} min="0" />
             </div>
             <div>
-              <label className={labelClass}>Flat Packaging Charge ($)</label>
+              <label className={labelClass}>Flat Packaging Charge (₹)</label>
               <input type="number" className={inputClass} value={form.packagingCharge} onChange={e => setForm({...form, packagingCharge: Number(e.target.value)})} min="0" />
             </div>
             <div>
-              <label className={labelClass}>COD Charge ($)</label>
+              <label className={labelClass}>COD Charge (₹)</label>
               <input type="number" className={inputClass} value={form.codCharge} onChange={e => setForm({...form, codCharge: Number(e.target.value)})} min="0" />
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function ShippingSettings() {
             
             {form.expressAvailable && (
               <div className="w-1/2">
-                <label className={labelClass}>Express Shipping Charge ($)</label>
+                <label className={labelClass}>Express Shipping Charge (₹)</label>
                 <input 
                   type="number" 
                   min="0"

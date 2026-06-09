@@ -157,7 +157,7 @@ export default function PaymentSettings() {
               </label>
               {form.codEnabled && (
                 <div className="pl-4 border-l-2 border-stone-200 ml-2">
-                  <label className={labelClass}>Max COD Order Value ($)</label>
+                  <label className={labelClass}>Max COD Order Value (₹)</label>
                   <input type="number" className={inputClass} value={form.codMaxOrderValue} onChange={e => setForm({...form, codMaxOrderValue: Number(e.target.value)})} min="0" />
                 </div>
               )}

@@ -360,9 +360,6 @@ function EditProfileTab({ user, updateUser }: { user: any; updateUser: (u: any) 
               <label className={labelClass}>Preferred currency</label>
               <select {...regProf('preferredCurrency')} className={inputClass(!!errProf.preferredCurrency)}>
                 <option value="INR">INR — ₹</option>
-                <option value="USD">USD — $</option>
-                <option value="EUR">EUR — €</option>
-                <option value="GBP">GBP — £</option>
               </select>
             </div>
           </div>

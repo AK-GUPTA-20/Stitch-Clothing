@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { SellerLayout } from "@/components/seller/SellerLayout";
 import { productService } from "@/lib/api/productService";
 import { useAuth } from "@/lib/context/AuthContext";
+import { useGetMe } from "@/lib/hooks/useSeller";
 import { CreateProductPayload, CreateVariantPayload } from "@/lib/types/product.types";
 import { useToast } from "@/lib/context/ToastContext";
 import { generateSlug, getDeterministicObjectId } from "@/lib/utils";
@@ -126,7 +127,7 @@ function Toggle({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${
+        className={`relative inline-flex h-5 min-h-[20px] w-9 min-w-[36px] shrink-0 rounded-full border-2 transition-colors duration-200 ${
           checked ? "bg-stone-900 border-stone-900" : "bg-stone-200 border-stone-200"
         }`}
       >
@@ -203,6 +204,13 @@ export default function PortalNewProductPage() {
   const [uploadedImages, setUploadedImages] = useState<{_id: string, url: string}[]>([]);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const { data: sellerData, isLoading: sellerLoading } = useGetMe();
+  const isApproved = 
+    authUser?.role === 'admin' || 
+    (sellerData as any)?.status === 'approved' || 
+    (sellerData as any)?.status === 'verified' || 
+    (sellerData as any)?.verificationStatus === 'approved';
 
   const [form, setForm] = useState({
     name: "", description: "", category: CATEGORIES[0], price: 0,
@@ -286,7 +294,7 @@ export default function PortalNewProductPage() {
         toast.success("Updated", "Product details updated.");
       } else {
         const res = await productService.createProduct(payload);
-        const createdProduct = res.data || res.product;
+        const createdProduct = (res as any).data || (res as any).product || res;
         setProductId(createdProduct._id);
 
         for (const v of variants) {
@@ -381,6 +389,16 @@ export default function PortalNewProductPage() {
             </div>
           </div>
 
+          {!isApproved && !sellerLoading && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl flex items-start gap-3">
+              <span className="text-xl">⚠</span>
+              <div>
+                <p className="font-bold text-sm">Action Blocked</p>
+                <p className="text-xs mt-0.5">Your account must be fully verified by the administrator before you can add products. Please ensure all your details (KYC, Store, Bank) are complete.</p>
+              </div>
+            </div>
+          )}
+
           {/* ── Saved Banner ───────────────────────────────────────────── */}
           {productId && (
             <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200/70 px-4 py-3 rounded-xl">
@@ -418,14 +436,14 @@ export default function PortalNewProductPage() {
                   </select>
                 </div>
                 <div>
-                  <FieldLabel required>Price ($)</FieldLabel>
-                  <input type="number" min="0" value={form.price || ""} onChange={(e) => { set("price", e.target.value); if (touched.price) setFormErrors(v => ({ ...v, price: Number(e.target.value) <= 0 ? 'Must be greater than $0' : undefined })); }}
+                  <FieldLabel required>Price (₹)</FieldLabel>
+                  <input type="number" min="0" value={form.price || ""} onChange={(e) => { set("price", e.target.value); if (touched.price) setFormErrors(v => ({ ...v, price: Number(e.target.value) <= 0 ? 'Must be greater than ₹0' : undefined })); }}
                     onBlur={() => setTouched(t => ({ ...t, price: true }))}
                     placeholder="0" className={inputCls(formErrors.price ? 'border-red-300' : '')} />
                   {formErrors.price && <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><span>⚠</span>{formErrors.price}</p>}
                 </div>
                 <div>
-                  <FieldLabel required>Compare At ($)</FieldLabel>
+                  <FieldLabel required>Compare At (₹)</FieldLabel>
                   <input type="number" min="0" value={form.compareAtPrice || ""} onChange={(e) => { set("compareAtPrice", e.target.value); if (touched.compareAtPrice) setFormErrors(v => ({ ...v, compareAtPrice: (!e.target.value || Number(e.target.value) <= 0) ? 'Required' : Number(e.target.value) <= Number(form.price) ? 'Must be higher than price' : undefined })); }}
                     onBlur={() => setTouched(t => ({ ...t, compareAtPrice: true }))}
                     placeholder="Original price" className={inputCls(formErrors.compareAtPrice ? 'border-red-300' : '')} />
@@ -642,7 +660,7 @@ export default function PortalNewProductPage() {
             ) : (
               <div className="space-y-2">
                 <div className="hidden sm:grid grid-cols-6 gap-2 pb-1">
-                  {["Size", "Color", "Price ($)", "Stock", "SKU", "Swatch"].map((h) => (
+                  {["Size", "Color", "Price (₹)", "Stock", "SKU", "Swatch"].map((h) => (
                     <span key={h} className="text-[9px] tracking-widest uppercase text-stone-400 font-semibold">{h}</span>
                   ))}
                 </div>
@@ -725,7 +743,7 @@ export default function PortalNewProductPage() {
             </Link>
             <button
               onClick={handleSaveDraft}
-              disabled={saving}
+              disabled={saving || (!isApproved && !sellerLoading)}
               className="px-5 py-2.5 border border-stone-900 text-xs font-bold text-stone-900 hover:bg-stone-900 hover:text-white rounded-xl transition-all disabled:opacity-40"
             >
               {saving ? "Saving…" : productId ? "Update Details" : "Create Product"}

@@ -28,7 +28,6 @@ export const businessInfoSchema = z.object({
 });
 
 export const storeInfoSchema = z.object({
-  storeName: z.string().min(2, 'Store name must be at least 2 characters').max(100, 'Max 100 characters'),
   description: z.string().max(1000, 'Max 1000 characters').optional(),
   logoUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   coverUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
@@ -58,7 +57,7 @@ export const notificationPreferencesSchema = z.object({
 
 export const payoutSettingsSchema = z.object({
   schedule: z.enum(['daily', 'weekly', 'monthly']),
-  minimumAmount: z.number().min(100, 'Minimum payout amount is $100'),
+  minimumAmount: z.number().min(100, 'Minimum payout amount is ₹100'),
 });
 
 export const bankDetailsSchema = z
@@ -82,16 +81,10 @@ export const bankDetailsSchema = z
   })
   .refine((data) => data.accountNumber === data.confirmAccountNumber, {
     message: 'Account numbers do not match',
-    path: ['confirmAccountNumber'],
   });
 
 export const warehouseSchema = z.object({
   name: z.string().min(2, 'Warehouse name must be at least 2 characters').max(100),
-  contactPhone: z
-    .string()
-    .regex(phoneRegex, 'Enter a valid phone number')
-    .optional()
-    .or(z.literal('')),
   address: addressSchema,
   isDefault: z.boolean().default(false),
 });

@@ -233,11 +233,11 @@ export default function TaxSettings() {
                   <input type="text" className={inputClass} value={editSlab.hsnCode || ''} onChange={e => setEditSlab({...editSlab, hsnCode: e.target.value})} placeholder="e.g. 6109" />
                 </div>
                 <div>
-                  <label className={labelClass}>Min Amount ($)</label>
+                  <label className={labelClass}>Min Amount (₹)</label>
                   <input type="number" className={inputClass} value={editSlab.minAmount || 0} onChange={e => setEditSlab({...editSlab, minAmount: Number(e.target.value)})} min="0" />
                 </div>
                 <div>
-                  <label className={labelClass}>Max Amount ($)</label>
+                  <label className={labelClass}>Max Amount (₹)</label>
                   <input type="number" className={inputClass} value={editSlab.maxAmount || ''} onChange={e => setEditSlab({...editSlab, maxAmount: e.target.value})} min="0" />
                 </div>
               </div>

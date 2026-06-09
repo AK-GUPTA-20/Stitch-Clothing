@@ -44,16 +44,23 @@ export default function AdminSellersPage() {
                   <TableBody>
                     {sellers.map((seller: any) => (
                       <TableRow key={seller.id}>
-                        <TableCell className="font-medium">{seller.businessName}</TableCell>
-                        <TableCell>{seller.storeName}</TableCell>
+                        <TableCell className="font-medium">{seller.businessName || 'N/A'}</TableCell>
+                        <TableCell>{seller.store?.name || 'Not Setup'}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            seller.status === 'verified' ? 'bg-green-100 text-green-800' :
-                            seller.status === 'suspended' ? 'bg-red-100 text-red-800' :
-                            seller.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            seller.verificationStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                            (seller.verificationStatus === 'under_review' || seller.verificationStatus === 'documents_received') ? 'bg-blue-100 text-blue-800' :
+                            seller.verificationStatus === 'suspended' ? 'bg-gray-100 text-gray-800' :
+                            seller.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800' :
                             'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {seller.status || 'pending'}
+                            {seller.verificationStatus === 'not_submitted' ? 'Not Submitted' :
+                             seller.verificationStatus === 'documents_received' ? 'Documents Received' :
+                             seller.verificationStatus === 'under_review' ? 'Under Review' :
+                             seller.verificationStatus === 'approved' ? 'Approved' :
+                             seller.verificationStatus === 'rejected' ? 'Rejected' :
+                             seller.verificationStatus === 'suspended' ? 'Suspended' :
+                             seller.verificationStatus || 'Unknown'}
                           </span>
                         </TableCell>
                         <TableCell>{seller.commissionRate || 10}%</TableCell>

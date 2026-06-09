@@ -31,7 +31,7 @@ const INITIAL_NOTIFICATIONS = [
     id: 'n3',
     type: 'payout',
     title: 'Payout Processed',
-    message: 'Your payout of $12,500 has been successfully processed to your bank account.',
+    message: 'Your payout of ₹12,500 has been successfully processed to your bank account.',
     date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     read: true,
     icon: WalletCards,

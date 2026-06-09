@@ -283,7 +283,7 @@ export default function CustomizePage() {
                 className="w-full bg-stone-900 text-stone-50 py-4 text-[11px] tracking-[0.2em] uppercase font-bold hover:bg-stone-800 transition-colors shadow-xl shadow-stone-900/20"
                 type="button"
               >
-                Confirm & Add to Bag — $85
+                Confirm & Add to Bag — ₹85
               </button>
             </div>
           </div>

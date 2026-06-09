@@ -2,10 +2,14 @@ import { apiClient } from './apiClient';
 import { Seller } from './sellerService';
 
 export const adminSellerService = {
-  getSellers: () => apiClient.get<Seller[]>('/api/v1/sellers/admin'),
-  getSellerById: (id: string) => apiClient.get<Seller>(`/api/v1/sellers/admin/${id}`),
+  getSellers: async () => {
+    const res = await apiClient.get<any>('/api/v1/sellers/admin');
+    return Array.isArray(res) ? res : (res.data || []);
+  },
+  getSellerById: (id: string) => apiClient.get<Seller>(`/api/v1/sellers/admin/${id}`).then((res: any) => res.data || res),
   deleteSeller: (id: string) => apiClient.delete<void>(`/api/v1/sellers/admin/${id}`),
-  verifySeller: (id: string) => apiClient.patch<Seller>(`/api/v1/sellers/admin/${id}/verify`, {}),
+  verifySeller: (id: string, status: 'approved' | 'rejected', remarks?: string) => 
+    apiClient.patch<Seller>(`/api/v1/sellers/admin/${id}/verify`, { status, remarks }),
   suspendSeller: (id: string, reason?: string) => apiClient.patch<Seller>(`/api/v1/sellers/admin/${id}/suspend`, { reason }),
   unsuspendSeller: (id: string) => apiClient.patch<Seller>(`/api/v1/sellers/admin/${id}/unsuspend`, {}),
   

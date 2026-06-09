@@ -27,7 +27,8 @@ export const useAdminDeleteSeller = () => {
 export const useAdminVerifySeller = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => adminSellerService.verifySeller(id),
+    mutationFn: (data: { id: string, status: 'approved' | 'rejected', remarks?: string }) => 
+      adminSellerService.verifySeller(data.id, data.status, data.remarks),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['adminSellers'] });
       queryClient.invalidateQueries({ queryKey: ['adminSeller', id] });

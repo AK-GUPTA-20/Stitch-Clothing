@@ -8,6 +8,7 @@ import { productService } from "@/lib/api/productService";
 import { Product, ProductStatus } from "@/lib/types/product.types";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { useAuth } from "@/lib/context/AuthContext";
+import { useGetMe } from "@/lib/hooks/useSeller";
 import { useToast } from "@/lib/context/ToastContext";
 import {
   CheckCircle,
@@ -60,7 +61,13 @@ export default function PortalProductsIndex() {
   const [rejectReason, setRejectReason] = useState("");
   const [bulkStatus, setBulkStatus] = useState<ProductStatus>("approved");
 
-  const isAdmin = user?.role === "admin";
+  const { data: sellerData } = useGetMe();
+  const isAdmin = user?.role === 'admin';
+  const isApproved = 
+    user?.role === 'admin' || 
+    (sellerData as any)?.status === 'approved' || 
+    (sellerData as any)?.status === 'verified' || 
+    (sellerData as any)?.verificationStatus === 'approved';
 
   useEffect(() => {
     if (user) loadProducts();
@@ -91,7 +98,7 @@ export default function PortalProductsIndex() {
     setActionLoading(id);
     try {
       const res = await productService.approveProduct(id);
-      const updatedProduct = res.data || res.product;
+      const updatedProduct = (res as any).data || (res as any).product || res;
       setProducts((prev) => prev.map((p) => (p._id === id ? updatedProduct : p)));
       toast.success("Approved", `"${name}" has been approved.`);
     } catch {
@@ -109,7 +116,7 @@ export default function PortalProductsIndex() {
     setActionLoading(id);
     try {
       const res = await productService.rejectProduct(id, { reason: rejectReason });
-      const updatedProduct = res.data || res.product;
+      const updatedProduct = (res as any).data || (res as any).product || res;
       setProducts((prev) => prev.map((p) => (p._id === id ? updatedProduct : p)));
       toast.success("Rejected", "Product rejection recorded.");
       setRejectModal(null);
@@ -158,7 +165,7 @@ export default function PortalProductsIndex() {
     setActionLoading(id);
     try {
       const res = await productService.restoreProduct(id);
-      const updatedProduct = res.data || res.product;
+      const updatedProduct = (res as any).data || (res as any).product || res;
       setProducts((prev) => prev.map((p) => (p._id === id ? updatedProduct : p)));
       toast.success("Restored", `"${name}" restored successfully.`);
     } catch {
@@ -257,12 +264,22 @@ export default function PortalProductsIndex() {
 
             {/* Right Controls */}
             <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <Link
-                href="/seller/products/new"
-                className="flex-1 sm:flex-none text-center bg-stone-900 hover:bg-stone-800 active:bg-stone-950 text-white text-[11px] font-bold tracking-wide px-4 py-2 rounded-lg shadow-sm transition-colors"
-              >
-                + New Product
-              </Link>
+              {isAdmin || isApproved ? (
+                <Link
+                  href="/seller/products/new"
+                  className="flex-1 sm:flex-none text-center bg-stone-900 hover:bg-stone-800 active:bg-stone-950 text-white text-[11px] font-bold tracking-wide px-4 py-2 rounded-lg shadow-sm transition-colors"
+                >
+                  + New Product
+                </Link>
+              ) : (
+                <button
+                  disabled
+                  title="Your account must be verified by the admin to add products."
+                  className="flex-1 sm:flex-none text-center bg-stone-300 text-stone-500 text-[11px] font-bold tracking-wide px-4 py-2 rounded-lg shadow-sm cursor-not-allowed"
+                >
+                  + New Product
+                </button>
+              )}
               <button
                 onClick={loadProducts}
                 title="Refresh"

@@ -171,8 +171,8 @@ export default function LoyaltySettings() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className={labelClass}>Points Value (in $)</label>
-                <input type="number" step="0.01" min="0" className={inputClass} value={form.pointsValue} onChange={e => setForm({...form, pointsValue: Number(e.target.value)})} placeholder="e.g. 0.1 for 10pts=$1" />
+                <label className={labelClass}>Points Value (in ₹)</label>
+                <input type="number" step="0.01" min="0" className={inputClass} value={form.pointsValue} onChange={e => setForm({...form, pointsValue: Number(e.target.value)})} placeholder="e.g. 0.1 for 10pts=₹1" />
               </div>
               <div>
                 <label className={labelClass}>Points Expiry (Days)</label>

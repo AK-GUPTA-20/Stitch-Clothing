@@ -87,7 +87,7 @@ export function formatCurrency(
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    return `$${amount.toFixed(2)}`;
+    return `₹${amount.toFixed(2)}`;
   }
 }
 

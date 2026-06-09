@@ -14,6 +14,15 @@ import {
   Star,
   AlertTriangle,
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
@@ -110,34 +119,71 @@ function RevenueChart({
     );
   }
 
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
+  // Format data for recharts
+  const chartData = data.map((d) => {
+    const dateObj = new Date(d.date);
+    return {
+      ...d,
+      displayDate: dateObj.toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      shortDate: dateObj.getDate().toString(),
+    };
+  });
 
   return (
-    <div className="flex items-end gap-1 h-32 overflow-x-auto pb-1">
-      {data.map((d, i) => {
-        const height = Math.max((d.revenue / maxRevenue) * 100, 4);
-        const dateLabel = new Date(d.date).toLocaleDateString('en-IN', {
-          day: 'numeric',
-          month: 'short',
-        });
-        return (
-          <div
-            key={i}
-            className="flex-1 min-w-[24px] flex flex-col items-center gap-1 group relative"
-          >
-            <div
-              className="w-full bg-stone-200 hover:bg-stone-900 rounded-sm transition-colors cursor-default"
-              style={{ height: `${height}%` }}
-              title={`${dateLabel}: ${formatINR(d.revenue)} (${d.orders} orders)`}
-            />
-            {data.length <= 14 && (
-              <span className="text-[8px] text-stone-400 truncate w-full text-center">
-                {new Date(d.date).getDate()}
-              </span>
-            )}
-          </div>
-        );
-      })}
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f4" />
+          <XAxis
+            dataKey={data.length <= 14 ? 'shortDate' : 'displayDate'}
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 10, fill: '#a8a29e' }}
+            dy={10}
+            minTickGap={20}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fontSize: 10, fill: '#a8a29e' }}
+            tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(1) + 'k' : value}`}
+          />
+          <Tooltip
+            cursor={{ fill: '#f5f5f4' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const data = payload[0].payload;
+                return (
+                  <div className="bg-white border border-stone-200 p-3 rounded-xl shadow-sm">
+                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">
+                      {data.displayDate}
+                    </p>
+                    <p className="text-sm font-bold text-stone-900">
+                      {formatINR(data.revenue)}
+                    </p>
+                    <p className="text-xs text-stone-500 mt-1">
+                      {data.orders} {data.orders === 1 ? 'order' : 'orders'}
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
+          <Bar
+            dataKey="revenue"
+            fill="#1c1917"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
+          />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

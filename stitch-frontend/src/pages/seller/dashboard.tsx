@@ -73,7 +73,7 @@ export default function SellerDashboardPage() {
     {
       label: 'Wallet Balance',
       value: formatINR(wallet?.balance ?? dashboard?.walletBalance ?? 0),
-      sub: 'Available',
+      sub: `Earned: ${formatINR(dashboard?.totalEarnings ?? 0)} • Pending: ${formatINR(dashboard?.pendingPayout ?? 0)}${dashboard?.lastPayoutDate ? ` • Last Payout: ${formatDate(dashboard.lastPayoutDate)}` : ''}`,
       href: '/seller/wallet',
       icon: WalletCards,
       cls: 'bg-white border-stone-200 text-stone-900',
@@ -81,14 +81,13 @@ export default function SellerDashboardPage() {
     {
       label: 'Products',
       value:
-        seller?.totalProducts !== undefined
-          ? String(seller.totalProducts)
-          : '—',
+        dashboard?.products
+          ? String((dashboard.products.active || 0) + (dashboard.products.draft || 0) + (dashboard.products.hidden || 0))
+          : seller?.totalProducts !== undefined ? String(seller.totalProducts) : '—',
       sub:
-        dashboard?.pendingApprovalProducts != null &&
-        dashboard.pendingApprovalProducts > 0
-          ? `${dashboard.pendingApprovalProducts} pending approval`
-          : 'In catalog',
+        dashboard?.products?.pendingApproval > 0
+          ? `${dashboard.products.pendingApproval} pending approval`
+          : dashboard?.products ? `${dashboard.products.active || 0} active, ${dashboard.products.draft || 0} draft` : 'In catalog',
       href: '/seller/products',
       icon: Package,
       cls: 'bg-white border-stone-200 text-stone-900',
@@ -96,8 +95,8 @@ export default function SellerDashboardPage() {
     {
       label: 'Low Stock',
       value:
-        dashboard?.lowStockCount !== undefined
-          ? String(dashboard.lowStockCount)
+        dashboard?.products?.outOfStock !== undefined || dashboard?.lowStockCount !== undefined
+          ? String(dashboard?.products?.outOfStock ?? dashboard?.lowStockCount ?? 0)
           : '—',
       sub: 'Items to restock',
       href: '/seller/products',
@@ -111,12 +110,16 @@ export default function SellerDashboardPage() {
 
   // ── Quick actions ──────────────────────────────────────────────────────────
 
+  const isApproved = seller?.verificationStatus === 'approved';
+  const isSuspended = seller?.verificationStatus === 'suspended' || seller?.isActive === false;
+
   const quickActions = [
     {
       label: 'New Product',
-      href: '/seller/products/new',
+      href: isApproved && !isSuspended ? '/seller/products/new' : '#',
       icon: Plus,
-      cls: 'bg-stone-900 text-white hover:bg-stone-800',
+      cls: isApproved && !isSuspended ? 'bg-stone-900 text-white hover:bg-stone-800' : 'bg-stone-200 text-stone-400 cursor-not-allowed opacity-70',
+      disabled: !isApproved || isSuspended,
     },
     {
       label: 'View Orders',
@@ -126,9 +129,10 @@ export default function SellerDashboardPage() {
     },
     {
       label: 'Payouts',
-      href: '/seller/payouts',
+      href: isApproved && !isSuspended ? '/seller/payouts' : '#',
       icon: WalletCards,
-      cls: 'bg-white border border-stone-200 text-stone-700 hover:border-stone-400',
+      cls: isApproved && !isSuspended ? 'bg-white border border-stone-200 text-stone-700 hover:border-stone-400' : 'bg-stone-50 border border-stone-200 text-stone-400 cursor-not-allowed opacity-70',
+      disabled: !isApproved || isSuspended,
     },
     {
       label: 'KYC Docs',
@@ -175,36 +179,40 @@ export default function SellerDashboardPage() {
       >
         <div className="space-y-6">
           {/* ── Verification Alert ───────────────────────────────────────── */}
-          {seller && seller.status !== 'verified' && (
+          {seller && seller.verificationStatus !== 'approved' && (
             <div
               className={`flex items-start gap-3 px-4 py-3.5 rounded-xl border ${
-                seller.status === 'pending'
+                seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
                   ? 'bg-amber-50 border-amber-200 text-amber-800'
                   : 'bg-red-50 border-red-200 text-red-800'
               }`}
             >
-              {seller.status === 'pending' ? (
+              {seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review' ? (
                 <Clock size={16} className="shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
               )}
               <div>
                 <p className="text-xs font-semibold">
-                  {seller.status === 'pending'
+                  {seller.verificationStatus === 'not_submitted'
+                    ? 'KYC Not Submitted'
+                    : seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
                     ? 'Account Pending Verification'
-                    : seller.status === 'suspended'
+                    : seller.verificationStatus === 'suspended'
                     ? 'Account Suspended'
-                    : seller.status === 'rejected'
+                    : seller.verificationStatus === 'rejected'
                     ? 'Account Rejected'
                     : 'Verification Required'}
                 </p>
                 <p className="text-[11px] mt-0.5 opacity-80">
-                  {seller.status === 'pending'
-                    ? 'Your account is under review. Complete your KYC to speed up the process.'
-                    : seller.kycRejectionReason ||
+                  {seller.verificationStatus === 'not_submitted'
+                    ? 'Please submit your KYC documents to activate your account.'
+                    : seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
+                    ? 'Your account is under review. We will notify you once approved.'
+                    : seller.verificationRemarks ||
                       'Please contact support for assistance.'}
                 </p>
-                {seller.status === 'pending' && (
+                {(seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'rejected') && (
                   <Link
                     href="/seller/kyc"
                     className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold underline"
@@ -247,7 +255,8 @@ export default function SellerDashboardPage() {
                 <Link
                   key={action.label}
                   href={action.href}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition-all ${action.cls}`}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${action.cls}`}
+                  onClick={(e) => action.disabled && e.preventDefault()}
                 >
                   <Icon size={13} />
                   {action.label}

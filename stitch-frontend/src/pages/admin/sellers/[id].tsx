@@ -59,17 +59,28 @@ export default function AdminSellerDetailsPage() {
           {/* Header Controls */}
           <div className="flex justify-between items-center bg-white p-6 rounded-lg border shadow-sm">
             <div>
-              <h1 className="text-2xl font-bold">{seller.businessName}</h1>
-              <p className="text-gray-500">Status: <span className="font-semibold uppercase">{seller.status}</span> | Level: {seller.level || 'Standard'}</p>
+              <h1 className="text-2xl font-bold">{seller.businessName || 'Unnamed Business'}</h1>
+              <p className="text-gray-500">
+                Status: <span className="font-semibold uppercase text-sm px-2 py-1 bg-gray-100 rounded">
+                  {seller.verificationStatus === 'not_submitted' ? 'Not Submitted' :
+                   seller.verificationStatus === 'documents_received' ? 'Documents Received' :
+                   seller.verificationStatus === 'under_review' ? 'Under Review' :
+                   seller.verificationStatus === 'approved' ? 'Approved' :
+                   seller.verificationStatus === 'rejected' ? 'Rejected' :
+                   seller.verificationStatus === 'suspended' ? 'Suspended' :
+                   seller.verificationStatus || 'Unknown'}
+                </span> 
+                {' '} | Level: <span className="font-semibold capitalize">{seller.sellerLevel || 'Bronze'}</span>
+              </p>
             </div>
             <div className="flex space-x-3">
-              {seller.status !== 'verified' && (
-                <Button variant="outline" onClick={() => verifySeller.mutate(seller.id, { onSuccess: () => toast.success('Seller verified') })}>
-                  Verify
+              {seller.verificationStatus !== 'approved' && (
+                <Button variant="outline" onClick={() => verifySeller.mutate({ id: seller.id || seller._id, status: 'approved' }, { onSuccess: () => toast.success('Seller verified') })}>
+                  Verify / Approve
                 </Button>
               )}
-              {seller.status === 'suspended' ? (
-                <Button variant="default" onClick={() => unsuspendSeller.mutate(seller.id, { onSuccess: () => toast.success('Seller unsuspended') })}>
+              {seller.verificationStatus === 'suspended' ? (
+                <Button variant="default" onClick={() => unsuspendSeller.mutate(seller.id || seller._id, { onSuccess: () => toast.success('Seller unsuspended') })}>
                   Unsuspend
                 </Button>
               ) : (
@@ -103,33 +114,66 @@ export default function AdminSellerDetailsPage() {
                 <Card>
                   <CardHeader><CardTitle>Business Information</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                    <p><strong>Legal Name:</strong> {seller.legalEntityName}</p>
-                    <p><strong>Tax ID:</strong> {seller.taxId}</p>
-                    <p><strong>Phone:</strong> {seller.phone}</p>
+                    <p><strong>Business Name:</strong> {seller.businessName}</p>
+                    <p><strong>Type:</strong> <span className="capitalize">{seller.businessType?.replace('_', ' ')}</span></p>
+                    <p><strong>GST Number:</strong> {seller.gstNumber || 'N/A'}</p>
+                    <p><strong>PAN Number:</strong> {seller.panNumber || 'N/A'}</p>
+                    <p><strong>Phone:</strong> {seller.businessPhone || 'N/A'}</p>
+                    <p><strong>Email:</strong> {seller.businessEmail || 'N/A'}</p>
+                    <p><strong>Website:</strong> {seller.website || 'N/A'}</p>
+                    {seller.businessAddress && (
+                      <p><strong>Address:</strong> {seller.businessAddress.street}, {seller.businessAddress.city}, {seller.businessAddress.state} {seller.businessAddress.postalCode}, {seller.businessAddress.country}</p>
+                    )}
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader><CardTitle>Store Information</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                    <p><strong>Store Name:</strong> {seller.storeName}</p>
-                    <p><strong>Description:</strong> {seller.description}</p>
+                    <p><strong>Store Name:</strong> {seller.store?.name || 'Not configured'}</p>
+                    <p><strong>Description:</strong> {seller.store?.description || 'N/A'}</p>
+                    <p><strong>Categories:</strong> {seller.store?.categories?.join(', ') || 'N/A'}</p>
+                    <p><strong>Verified Store:</strong> {seller.store?.isVerified ? 'Yes' : 'No'}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader><CardTitle>Bank Details</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                    {seller.bank ? (
+                    {seller.bankDetails ? (
                       <>
-                        <p><strong>Bank:</strong> {seller.bank.bankName}</p>
-                        <p><strong>Account:</strong> {seller.bank.accountNumber}</p>
-                        <p><strong>Status:</strong> {seller.bank.status}</p>
+                        <p><strong>Bank:</strong> {seller.bankDetails.bankName}</p>
+                        <p><strong>Account Holder:</strong> {seller.bankDetails.accountHolder}</p>
+                        <p><strong>Account:</strong> {seller.bankDetails.accountNumber}</p>
+                        <p><strong>IFSC:</strong> {seller.bankDetails.ifscCode}</p>
+                        <p><strong>Type:</strong> <span className="capitalize">{seller.bankDetails.accountType}</span></p>
+                        <p><strong>Status:</strong> {seller.bankDetails.isVerified ? <span className="text-green-600 font-semibold">Verified</span> : <span className="text-yellow-600 font-semibold">Unverified</span>}</p>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => verifyBank.mutate({ id: seller.id, status: 'verified' })}>Approve</Button>
-                          <Button size="sm" variant="destructive" onClick={() => verifyBank.mutate({ id: seller.id, status: 'rejected' })}>Reject</Button>
+                          {!seller.bankDetails.isVerified && (
+                            <Button size="sm" variant="outline" onClick={() => verifyBank.mutate({ id: seller.id || seller._id, status: 'verified' })}>Approve</Button>
+                          )}
                         </div>
                       </>
                     ) : (
                       <p className="text-gray-500">No bank details added.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="mt-6">
+                <Card>
+                  <CardHeader><CardTitle>Warehouses</CardTitle></CardHeader>
+                  <CardContent>
+                    {seller.warehouses && seller.warehouses.length > 0 ? (
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {seller.warehouses.map((wh: any) => (
+                          <div key={wh.id || wh._id} className="border p-4 rounded-lg shadow-sm">
+                            <h4 className="font-semibold">{wh.name} {wh.isDefault && <span className="text-xs bg-stone-900 text-white px-2 py-1 rounded ml-2">Default</span>}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{wh.address?.street}, {wh.address?.city}, {wh.address?.state} {wh.address?.postalCode}, {wh.address?.country}</p>
+                            {wh.contactPhone && <p className="text-sm text-gray-500 mt-1">📞 {wh.contactPhone}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">No warehouses configured.</p>
                     )}
                   </CardContent>
                 </Card>
@@ -150,19 +194,22 @@ export default function AdminSellerDetailsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {seller.documents?.map((doc: any) => (
-                        <TableRow key={doc.id}>
-                          <TableCell>{doc.type}</TableCell>
-                          <TableCell>{doc.status}</TableCell>
-                          <TableCell>
-                            <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-500 underline">View</a>
-                          </TableCell>
-                          <TableCell className="space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => updateDoc.mutate({ id: seller.id, docId: doc.id, status: 'approved' })}>Approve</Button>
-                            <Button size="sm" variant="destructive" onClick={() => updateDoc.mutate({ id: seller.id, docId: doc.id, status: 'rejected', reason: 'Invalid document' })}>Reject</Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {seller.documents?.map((doc: any) => {
+                        const docId = doc.id || doc._id;
+                        return (
+                          <TableRow key={docId}>
+                            <TableCell>{doc.type}</TableCell>
+                            <TableCell>{doc.status}</TableCell>
+                            <TableCell>
+                              <a href={doc.fileUrl || doc.url} target="_blank" rel="noreferrer" className="text-blue-500 underline">View</a>
+                            </TableCell>
+                            <TableCell className="space-x-2">
+                              <Button size="sm" variant="outline" onClick={() => updateDoc.mutate({ id: seller.id || seller._id, docId, status: 'approved' })}>Approve</Button>
+                              <Button size="sm" variant="destructive" onClick={() => updateDoc.mutate({ id: seller.id || seller._id, docId, status: 'rejected', reason: 'Invalid document' })}>Reject</Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {!seller.documents?.length && <TableRow><TableCell colSpan={4} className="text-center text-gray-500">No documents found.</TableCell></TableRow>}
                     </TableBody>
                   </Table>

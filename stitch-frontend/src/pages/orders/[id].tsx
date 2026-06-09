@@ -20,16 +20,11 @@ import {
   RotateCcw, DollarSign, X, Download, ExternalLink, AlertCircle,
   CheckCircle2, Clock, Tag, Copy, Check,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+
 
 function formatDate(dateStr: string, full = false) {
   return new Date(dateStr).toLocaleDateString('en-IN', {
@@ -378,7 +373,7 @@ export default function OrderDetailPage() {
                               <Tag size={10} className="text-accent shrink-0" />
                               <span className="text-[10px] text-stone-700 font-sans">
                                 {item.customisation.type}: {item.customisation.text}
-                                {item.customisation.extraCharge && ` (+$${item.customisation.extraCharge})`}
+                                {item.customisation.extraCharge && ` (+₹${item.customisation.extraCharge})`}
                               </span>
                             </div>
                           )}

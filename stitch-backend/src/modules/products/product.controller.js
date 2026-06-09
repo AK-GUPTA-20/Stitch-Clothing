@@ -4,6 +4,9 @@ const path            = require("path");
 const asyncHandler = require("../../middleware/asyncHandler");
 const ErrorHandler    = require("../../middleware/error");
 const Product         = require("../../models/Product");
+const Config          = require("../../models/Config");
+const Notification    = require("../../models/Notification");
+const Seller          = require("../../models/Seller");
 const { uploadToImageKit } = require("../../utils/imagekit");
 const ResponseFormatter = require("../../utils/responseFormatter");
 
@@ -346,10 +349,26 @@ exports.getProductsBySeller = asyncHandler(async (req, res) => {
 ───────────────────────────────────────────────────────────────────────────── */
 
 //* Create a new product  POST /api/v1/products
-exports.createProduct = asyncHandler(async (req, res) => {
+exports.createProduct = asyncHandler(async (req, res, next) => {
   // Attach seller from auth if not provided (seller role)
   if (!req.body.sellerId && req.user?.sellerId) {
     req.body.sellerId = req.user.sellerId;
+  }
+
+  if (!req.body.sellerId) {
+    return next(new ErrorHandler("Seller ID is required.", 400));
+  }
+
+  const mongoose = require("mongoose");
+  const Seller = require("../../models/Seller");
+  const seller = await Seller.findOne({ $or: [{ _id: req.body.sellerId }, { userId: req.body.sellerId }] });
+
+  if (!seller) {
+    return next(new ErrorHandler("Seller not found.", 404));
+  }
+
+  if (seller.verificationStatus !== "approved") {
+    return next(new ErrorHandler("Product creation is blocked. Seller verification status is not approved.", 403));
   }
 
   // Automatically approve and activate new products
@@ -449,6 +468,30 @@ exports.approveProduct = asyncHandler(async (req, res, next) => {
   product.publishedAt = product.publishedAt || new Date();
   await product.save({ validateBeforeSave: false });
 
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "approve_product",
+      targetType: "product",
+      targetId: String(product._id),
+      description: `Product "${product.name}" approved.`,
+    }
+  });
+
+  const seller = await Seller.findById(product.sellerId).select("userId");
+  if (seller) {
+    await Notification.create({
+      userId: seller.userId,
+      type: "general",
+      title: "Product Approved",
+      message: `Your product "${product.name}" has been approved and is now live.`,
+      actionUrl: `/seller/products`
+    });
+  }
+
   res.status(200).json({ success: true, message: "Product approved and published.", data: product });
 });
 
@@ -463,6 +506,30 @@ exports.rejectProduct = asyncHandler(async (req, res, next) => {
   product.status          = "rejected";
   product.rejectionReason = reason;
   await product.save({ validateBeforeSave: false });
+
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "reject_product",
+      targetType: "product",
+      targetId: String(product._id),
+      description: `Product "${product.name}" rejected. Reason: ${reason}`,
+    }
+  });
+
+  const seller = await Seller.findById(product.sellerId).select("userId");
+  if (seller) {
+    await Notification.create({
+      userId: seller.userId,
+      type: "general",
+      title: "Product Rejected",
+      message: `Your product "${product.name}" was rejected. Reason: ${reason}`,
+      actionUrl: `/seller/products`
+    });
+  }
 
   res.status(200).json({ success: true, message: "Product rejected.", data: product });
 });
@@ -492,10 +559,25 @@ exports.bulkUpdateStatus = asyncHandler(async (req, res, next) => {
 
   const result = await Product.updateMany(
     { _id: { $in: ids } },
-    { $set: { status, isActive: status === "approved" } }
+    { $set: { status } }
   );
 
-  res.status(200).json({ success: true, modifiedCount: result.modifiedCount });
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "bulk_update_product_status",
+      targetType: "product",
+      description: `Bulk updated ${result.modifiedCount} products to status: ${status}`,
+    }
+  });
+
+  res.status(200).json({
+    success : true,
+    message : `${result.modifiedCount} products updated to ${status}.`,
+  });
 });
 
 //* Bulk soft-delete products (admin)  DELETE /api/v1/products/bulk

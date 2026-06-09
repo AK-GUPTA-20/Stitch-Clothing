@@ -36,7 +36,6 @@ const navigation = [
   { name: 'Bank Details', href: '/seller/bank', icon: Building2 },
   { name: 'Wallet & Earnings', href: '/seller/wallet', icon: WalletCards },
   { name: 'Payouts', href: '/seller/payouts', icon: CreditCard },
-  { name: 'Warehouses', href: '/seller/warehouses', icon: Warehouse },
   { name: 'Notifications', href: '/seller/notifications', icon: Bell },
 ];
 

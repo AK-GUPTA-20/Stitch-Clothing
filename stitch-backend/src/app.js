@@ -9,13 +9,15 @@ const path = require("path");
 
 const app = express();
 
+app.use(cors(getCorsOptions()));
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(helmet({
-  crossOriginResourcePolicy: false, // Ensure statically served images are loadable by the frontend
-}));
-app.use(cors(getCorsOptions()));
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 const limiter = rateLimit({

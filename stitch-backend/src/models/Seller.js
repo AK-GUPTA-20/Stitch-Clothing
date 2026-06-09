@@ -157,8 +157,8 @@ const sellerSchema = new Schema(
     bankDetails : { type: bankDetailsSchema },
     verificationStatus  : {
       type    : String,
-      enum    : ["pending", "under_review", "approved", "rejected", "suspended"],
-      default : "pending",
+      enum    : ["not_submitted", "documents_received", "under_review", "approved", "rejected", "suspended"],
+      default : "not_submitted",
     },
     verificationRemarks : { type: String },
     verifiedAt          : { type: Date },
@@ -183,7 +183,7 @@ const sellerSchema = new Schema(
       default : "weekly",
     },
     minPayoutAmount : { type: Number, default: 1000 },
-    walletBalance : { type: Number, default: 0, min: 0 },
+    walletBalance : { type: Number, default: 0 },
     walletLedger  : { type: [sellerLedgerSchema], default: [] },
     payouts : { type: [payoutSchema], default: [] },
     store : {

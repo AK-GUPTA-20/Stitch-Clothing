@@ -98,10 +98,7 @@ exports.getContentBySlug = asyncHandler(async (req, res, next) => {
 
 //* Get the full platform settings document (admin)  GET /api/v1/configs/settings
 exports.getPlatformSettings = asyncHandler(async (req, res) => {
-  const doc = await Config.findOne({ type: "platform_settings" }).select(
-    "-settings.email.templates -settings.payment.gateways -settings.tax.slabs " +
-    "-settings.loyalty.rules -settings.loyalty.tiers"
-  );
+  const doc = await Config.findOne({ type: "platform_settings" });
 
   res.status(200).json({ success: true, data: doc?.settings || {} });
 });

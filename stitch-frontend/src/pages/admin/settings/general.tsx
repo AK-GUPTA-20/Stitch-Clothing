@@ -108,8 +108,7 @@ export default function GeneralSettings() {
             <div>
               <label className={labelClass}>Currency</label>
               <select className={inputClass} value={form.currency} onChange={e => setForm({...form, currency: e.target.value})}>
-                <option value="INR">INR ($)</option>
-                <option value="USD">USD ($)</option>
+                <option value="INR">INR (₹)</option>
               </select>
             </div>
             <div>

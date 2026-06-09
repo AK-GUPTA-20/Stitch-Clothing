@@ -5,6 +5,7 @@ import { Order } from '@/lib/types/order.types';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { OrderTimeline } from './OrderTimeline';
 import { Package, ChevronRight, MapPin, Truck, RotateCcw, FileText, X } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 interface OrderCardProps {
   order: Order;
@@ -16,13 +17,7 @@ interface OrderCardProps {
   onToggle?: () => void;
 }
 
-function formatCurrency(amount: number, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', {

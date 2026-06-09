@@ -20,12 +20,11 @@ import {
   ShoppingBag, Eye, FileText, Truck, Ban, SlidersHorizontal, Calendar,
   ArrowUpDown,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-}
+
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -469,7 +468,7 @@ export default function AdminOrdersPage() {
     try {
       const payload: UpdateOrderStatusPayload = { status, note };
       const res = await orderService.updateOrderStatus(selectedOrder._id, payload);
-      refreshOrderInList(res.order);
+      refreshOrderInList((res as any).order || res);
       toast.success('Status updated', `Order is now ${status.replace(/_/g, ' ')}`);
     } catch (err: any) {
       toast.error('Update failed', err.message);
@@ -483,7 +482,7 @@ export default function AdminOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.markDelivered(selectedOrder._id);
-      refreshOrderInList(res.order);
+      refreshOrderInList((res as any).order || res);
       toast.success('Marked as delivered');
     } catch (err: any) {
       toast.error('Failed', err.message);
@@ -499,7 +498,7 @@ export default function AdminOrdersPage() {
       const res = await orderService.generateInvoice(selectedOrder._id);
       if (res.invoiceUrl) window.open(res.invoiceUrl, '_blank');
       else toast.info('Invoice', 'Invoice is being generated.');
-      if (res.order) refreshOrderInList(res.order);
+      if ((res as any).order || res) refreshOrderInList((res as any).order || res);
     } catch (err: any) {
       toast.error('Invoice failed', err.message);
     } finally {
@@ -512,7 +511,7 @@ export default function AdminOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.adminCancelOrder(selectedOrder._id, { reason });
-      refreshOrderInList(res.order);
+      refreshOrderInList((res as any).order || res);
       toast.success('Order cancelled', reason);
     } catch (err: any) {
       toast.error('Cancel failed', err.message);
@@ -527,7 +526,7 @@ export default function AdminOrdersPage() {
     try {
       const payload: UpdateRefundStatusPayload = { status, adminNote: note };
       const res = await orderService.updateRefundStatus(selectedOrder._id, refundId, payload);
-      refreshOrderInList(res.order);
+      refreshOrderInList((res as any).order || res);
       // Re-fetch refunds
       const refRes = await orderService.getRefunds(selectedOrder._id);
       setOrderRefunds(refRes.refunds ?? []);
@@ -545,7 +544,7 @@ export default function AdminOrdersPage() {
     try {
       const payload: UpdateReturnStatusPayload = { status, adminNote: note };
       const res = await orderService.updateReturnStatus(selectedOrder._id, payload);
-      refreshOrderInList(res.order);
+      refreshOrderInList((res as any).order || res);
       toast.success('Return status updated');
     } catch (err: any) {
       toast.error('Update failed', err.message);

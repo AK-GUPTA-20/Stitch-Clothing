@@ -22,7 +22,6 @@ const { getCorsOptions } = require("./src/config/cors");
 
 const server = http.createServer(app);
 
-
 // GRACEFUL SHUTDOWN 
 
 const gracefulShutdown = async (signal) => {

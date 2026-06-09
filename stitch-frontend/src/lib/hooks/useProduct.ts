@@ -125,7 +125,7 @@ export function useProduct(id: string | undefined): UseProductResult {
         // Try API first
         const res = await productService.getProductById(normalizedId);
         if (cancelled) return;
-        const p = normalise(res.data || res.product);
+        const p = normalise((res as any).data || (res as any).product || res);
         setProduct(p);
 
         // Extract string ID safely from MongoIdLike

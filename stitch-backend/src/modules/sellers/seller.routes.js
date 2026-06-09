@@ -41,6 +41,8 @@ const {
   refreshAnalyticsCache,
   getSellerDashboard,
   getPublicSellerAnalytics,
+  getMyNotifications,
+  markNotificationAsRead,
 } = require("./seller.controller");
 
 const { isAuthenticated, isAdmin, isAuthorized } = require("../../middleware/auth");
@@ -123,10 +125,15 @@ router.get( "/me/dashboard", isAuthenticated, isAuthorized(["seller", "admin"]),
 router.get( "/me/analytics", isAuthenticated, isAuthorized(["seller", "admin"]), getSellerAnalytics );
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   FALLBACK PUBLIC ROUTE (/:id) - MUST BE DEFINED AFTER ALL /me ROUTES
+   NOTIFICATIONS
 ───────────────────────────────────────────────────────────────────────────── */
 
-router.get( "/:id", getSellerById );
+router.get( "/me/notifications", isAuthenticated, isAuthorized(["seller", "admin"]), getMyNotifications );
+router.patch( "/me/notifications/:notificationId/read", isAuthenticated, isAuthorized(["seller", "admin"]), markNotificationAsRead );
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FALLBACK PUBLIC ROUTE (/:id) - MOVED TO BOTTOM
+───────────────────────────────────────────────────────────────────────────── */
 
 /* ─────────────────────────────────────────────────────────────────────────────
    ADMIN — SELLER MANAGEMENT
@@ -147,5 +154,10 @@ router.patch( "/admin/:id/analytics/refresh", isAuthenticated, isAdmin, refreshA
 
 router.patch( "/admin/:id/documents/:docId/status",   isAuthenticated, isAdmin, updateDocumentStatus );
 router.patch( "/admin/:id/payouts/:payoutId/status",  isAuthenticated, isAdmin, processPayoutAdmin   );
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FALLBACK PUBLIC ROUTE (/:id)
+───────────────────────────────────────────────────────────────────────────── */
+router.get( "/:id", getSellerById );
 
 module.exports = router;

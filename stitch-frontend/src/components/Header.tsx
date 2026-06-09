@@ -156,8 +156,6 @@ const quickCategories = [
 
 const TopUtilityBar = memo(function TopUtilityBar() {
   const [announcementIdx, setAnnouncementIdx] = useState(0);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState("INR ₹");
 
   useEffect(() => {
     const id = setInterval(
@@ -167,60 +165,18 @@ const TopUtilityBar = memo(function TopUtilityBar() {
     return () => clearInterval(id);
   }, []);
 
-  // Close currency dropdown on outside click
-  useEffect(() => {
-    if (!currencyOpen) return;
-    const handler = () => setCurrencyOpen(false);
-    const id = setTimeout(() => document.addEventListener("click", handler), 0);
-    return () => {
-      clearTimeout(id);
-      document.removeEventListener("click", handler);
-    };
-  }, [currencyOpen]);
+
 
   return (
     <div className="bg-stone-900 text-stone-50 overflow-hidden flex items-center justify-between px-4 lg:px-8 h-[var(--h-utility)]">
       {/* Left: locale / currency */}
       <div className="hidden md:flex items-center gap-4">
-        <button
-          className="flex items-center gap-1 text-[10px] text-stone-400 hover:text-stone-200 transition-colors tracking-wide"
-          aria-label="Country: UK"
-        >
+        <div className="flex items-center gap-1 text-[10px] text-stone-400 tracking-wide">
           <Globe size={11} />
-          <span>UK / EN</span>
-        </button>
-        <div className="relative">
-          <button
-            className="flex items-center gap-1 text-[10px] text-stone-400 hover:text-stone-200 transition-colors tracking-wide"
-            onClick={(e) => { e.stopPropagation(); setCurrencyOpen((v) => !v); }}
-            aria-label={`Currency: ${selectedCurrency}`}
-            aria-expanded={currencyOpen}
-          >
-            {selectedCurrency}
-            <ChevronDown size={9} className={`transition-transform duration-200 ${currencyOpen ? "rotate-180" : ""}`} />
-          </button>
-          {currencyOpen && (
-            <div
-              className="absolute top-6 left-0 bg-stone-800 border border-stone-700 py-1 z-50 w-32 shadow-xl"
-              role="menu"
-            >
-              {["INR ₹", "USD $", "GBP £", "EUR €", "AUD $"].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => { setSelectedCurrency(c); setCurrencyOpen(false); }}
-                  className={`w-full px-3 py-2 text-left text-[11px] transition-colors ${
-                    selectedCurrency === c
-                      ? "text-accent bg-stone-700"
-                      : "text-stone-300 hover:text-white hover:bg-stone-700"
-                  }`}
-                  role="menuitem"
-                  aria-current={selectedCurrency === c}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
+          <span>IN / EN</span>
+        </div>
+        <div className="flex items-center gap-1 text-[10px] text-stone-400 tracking-wide">
+          <span>INR ₹</span>
         </div>
       </div>
 
@@ -329,6 +285,17 @@ export default function Header() {
     document.body.style.overflow = menuOpen || searchOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [menuOpen, searchOpen]);
+
+  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024 && menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [menuOpen]);
 
   // Profile dropdown: close on outside click
   useEffect(() => {

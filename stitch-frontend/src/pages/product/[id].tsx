@@ -981,7 +981,7 @@ function ProductDetail({
                     {
                       icon: Truck,
                       label: "Delivery",
-                      sub: "Free over $150",
+                      sub: "Free over ₹1,500",
                       ok: true,
                     },
                     {

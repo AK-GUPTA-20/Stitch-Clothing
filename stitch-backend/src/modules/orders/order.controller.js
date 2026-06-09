@@ -6,6 +6,7 @@ const Product         = require("../../models/Product");
 const Order           = require("../../models/Order");
 const Seller          = require("../../models/Seller");
 const User            = require("../../models/User");
+const Config          = require("../../models/Config");
 const mongoose        = require("mongoose");
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ async function _processRefund(order, session, { amount: explicitAmount } = {}) {
   }
 
   if (seller && !_hasLedgerEntry(seller.walletLedger || [], { type: "debit", source: "refund_deduction", referenceId, amount })) {
-    seller.walletBalance = Math.max(0, (seller.walletBalance || 0) - amount);
+    seller.walletBalance = (seller.walletBalance || 0) - amount;
     seller.walletLedger.push({
       type: "debit",
       amount,
@@ -146,6 +147,12 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
   req.body.userId   = req.user._id;
   req.body.placedAt = new Date();
+  
+  if (req.body.payment) {
+    req.body.payment.status = "pending";
+  } else {
+    req.body.payment = { status: "pending" };
+  }
 
   const productIds = [...new Set(req.body.items.map((item) => item.productId).filter(Boolean).map((value) => value.toString()))];
   const products = await Product.find({ _id: { $in: productIds }, deletedAt: null, isActive: true })
@@ -673,7 +680,7 @@ exports.confirmOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -694,7 +701,7 @@ exports.processOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -714,7 +721,7 @@ exports.markPacked = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -742,7 +749,7 @@ exports.dispatchOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -795,7 +802,7 @@ exports.sellerCancelOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -840,7 +847,7 @@ exports.sellerDeliverOrder = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -888,7 +895,7 @@ exports.sellerUpdateStatus = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString()) {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString()) {
     return next(new ErrorHandler("Not authorised to update this order.", 403));
   }
 
@@ -936,7 +943,7 @@ exports.sellerUpdateReturnStatus = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
-  if (order.sellerId?.toString() !== (req.user.sellerId || req.user._id).toString() && req.user.role !== "admin") {
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && order.sellerId?.toString() !== req.user._id?.toString() && req.user.role !== "admin") {
     return next(new ErrorHandler("Not authorised.", 403));
   }
 
@@ -1235,6 +1242,20 @@ exports.updateRefundStatus = asyncHandler(async (req, res, next) => {
     }
 
     await order.save({ session, validateBeforeSave: false });
+
+    await Config.create([{
+      type: "audit_log",
+      audit: {
+        adminId: req.user._id,
+        adminName: `${req.user.firstName} ${req.user.lastName}`,
+        adminEmail: req.user.email,
+        action: "update_refund_status",
+        targetType: "order",
+        targetId: String(order._id),
+        description: `Updated refund ${refund._id} status to ${status} for Order ${order.orderId}`,
+      }
+    }], { session });
+
     await session.commitTransaction();
   } catch (err) {
     await session.abortTransaction();
@@ -1285,6 +1306,20 @@ exports.updateReturnStatus = asyncHandler(async (req, res, next) => {
 
     _pushStatusHistory(order, order.orderStatus, req.user._id, "admin");
     await order.save({ session, validateBeforeSave: false });
+
+    await Config.create([{
+      type: "audit_log",
+      audit: {
+        adminId: req.user._id,
+        adminName: `${req.user.firstName} ${req.user.lastName}`,
+        adminEmail: req.user.email,
+        action: "update_return_status",
+        targetType: "order",
+        targetId: String(order._id),
+        description: `Updated return request status to ${status} for Order ${order.orderId}`,
+      }
+    }], { session });
+
     await session.commitTransaction();
   } catch (err) {
     await session.abortTransaction();

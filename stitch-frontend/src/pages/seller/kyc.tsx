@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { SellerLayout } from '@/components/seller/SellerLayout';
-import { useGetDocuments, useUploadDocument, useDeleteDocument } from '@/lib/hooks/useSeller';
+import { useGetDocuments, useUploadDocument, useDeleteDocument, useGetMe } from '@/lib/hooks/useSeller';
 import { useToast } from '@/lib/context/ToastContext';
 import {
   Upload,
@@ -47,6 +47,11 @@ function DocStatusBadge({ status }: { status?: string }) {
       cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       icon: <CheckCircle2 size={10} />,
     },
+    approved: {
+      label: 'Approved',
+      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      icon: <CheckCircle2 size={10} />,
+    },
     rejected: {
       label: 'Rejected',
       cls: 'bg-red-50 text-red-700 border-red-200',
@@ -79,9 +84,10 @@ export default function KYCDocumentsPage() {
   const [fileError, setFileError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
+  const { data: sellerData } = useGetMe();
   const documents: any[] =
     (docsData as any)?.documents ?? (Array.isArray(docsData) ? docsData : []);
-  const kycStatus = (docsData as any)?.kycStatus;
+  const kycStatus = (sellerData as any)?.verificationStatus;
 
   const validateFile = (file: File): string => {
     if (!ALLOWED_TYPES.includes(file.type)) return 'Only PDF, JPG, and PNG files are allowed';
@@ -180,28 +186,41 @@ export default function KYCDocumentsPage() {
         {kycStatus && (
           <div
             className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
-              kycStatus === 'verified'
+              kycStatus === 'approved'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : kycStatus === 'rejected'
+                : kycStatus === 'rejected' || kycStatus === 'suspended'
                 ? 'bg-red-50 border-red-200 text-red-800'
                 : 'bg-amber-50 border-amber-200 text-amber-800'
             }`}
           >
-            {kycStatus === 'verified' ? (
+            {kycStatus === 'approved' ? (
               <CheckCircle2 size={16} />
-            ) : kycStatus === 'rejected' ? (
+            ) : kycStatus === 'rejected' || kycStatus === 'suspended' ? (
               <AlertCircle size={16} />
             ) : (
               <Clock size={16} />
             )}
-            <p className="text-xs font-semibold">
-              KYC Status:{' '}
-              {kycStatus === 'verified'
-                ? 'Verified'
-                : kycStatus === 'rejected'
-                ? 'Rejected — please re-upload'
-                : 'Under Review'}
-            </p>
+            <div className="flex flex-col">
+              <p className="text-xs font-semibold">
+                KYC Status:{' '}
+                {kycStatus === 'approved'
+                  ? 'Verified'
+                  : kycStatus === 'rejected'
+                  ? 'Rejected — please re-upload'
+                  : kycStatus === 'documents_received'
+                  ? 'Documents Received — awaiting review'
+                  : kycStatus === 'under_review'
+                  ? 'Under Review'
+                  : kycStatus === 'suspended'
+                  ? 'Suspended'
+                  : 'Not Submitted'}
+              </p>
+              {kycStatus === 'rejected' && (sellerData as any)?.verificationRemarks && (
+                <p className="text-[10px] text-red-600 mt-0.5">
+                  Reason: {(sellerData as any).verificationRemarks}
+                </p>
+              )}
+            </div>
           </div>
         )}
 

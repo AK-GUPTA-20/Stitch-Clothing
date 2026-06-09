@@ -417,7 +417,7 @@ export default function CheckoutPage() {
     const resolved = await Promise.all(
       items.map(async (item) => {
         const response = await productService.getProductById(item.id);
-        const product = response.product || response.data;
+        const product = response.product || response.data || response;
         if (!product) throw new Error(`Unable to load product ${item.name}.`);
 
         const variant = getSelectedVariant(product, item);
@@ -553,7 +553,8 @@ export default function CheckoutPage() {
           response?.data ||
           response?.order ||
           response?.data?.data ||
-          response?.data?.order;
+          response?.data?.order ||
+          response;
         if (!created?._id)
           throw new Error(
             "Order creation succeeded, but no order record was returned."
@@ -706,7 +707,7 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <span className="font-medium text-stone-900">
-                        ${order.total.toFixed(2)}
+                        ₹{order.total.toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -790,7 +791,7 @@ export default function CheckoutPage() {
               </span>
               <span className="flex items-center gap-2">
                 <span className="font-semibold text-stone-900">
-                  ${orderTotal.toFixed(2)}
+                  ₹{orderTotal.toFixed(2)}
                 </span>
                 <ChevronRight
                   size={13}
@@ -1031,7 +1032,7 @@ export default function CheckoutPage() {
                         <span>
                           Add{" "}
                           <span className="font-medium text-stone-700">
-                            ${amountToFreeShipping.toFixed(2)}
+                            ₹{amountToFreeShipping.toFixed(2)}
                           </span>{" "}
                           more for free standard shipping
                         </span>
@@ -1085,7 +1086,7 @@ export default function CheckoutPage() {
                             {free || opt.price === 0 ? (
                               <span className="text-green-600">Free</span>
                             ) : (
-                              `$${opt.price.toFixed(2)}`
+                              `₹${opt.price.toFixed(2)}`
                             )}
                           </p>
                         </label>
@@ -1133,7 +1134,7 @@ export default function CheckoutPage() {
                         title="Cash on Delivery"
                         description={`Pay with cash when your order is delivered.${
                           COD_CHARGE > 0
-                            ? ` A COD fee of $${COD_CHARGE.toFixed(2)} applies.`
+                            ? ` A COD fee of ₹${COD_CHARGE.toFixed(2)} applies.`
                             : ""
                         }`}
                       />
@@ -1213,8 +1214,7 @@ export default function CheckoutPage() {
                       </>
                     ) : (
                       <>
-                        <Lock size={12} /> Place order $
-                        {orderTotal.toFixed(2)}
+                        <Lock size={12} /> Place order ₹{orderTotal.toFixed(2)}
                       </>
                     )
                   ) : (
@@ -1420,8 +1420,7 @@ function Checkbox({
   onChange: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
       role="checkbox"
       aria-checked={checked}
       onClick={onChange}
@@ -1432,7 +1431,7 @@ function Checkbox({
       }`}
     >
       {checked && <Check size={10} className="text-stone-50" />}
-    </button>
+    </div>
   );
 }
 
@@ -1441,11 +1440,10 @@ function RadioDot({
   onChange,
 }: {
   checked: boolean;
-  onChange: () => void;
+  onChange?: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
       role="radio"
       aria-checked={checked}
       onClick={onChange}
@@ -1456,7 +1454,7 @@ function RadioDot({
       {checked && (
         <div className="h-2 w-2 rounded-full bg-stone-900" />
       )}
-    </button>
+    </div>
   );
 }
 

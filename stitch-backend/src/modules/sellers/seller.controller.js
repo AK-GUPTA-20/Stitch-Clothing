@@ -5,6 +5,8 @@ const ErrorHandler    = require("../../middleware/error");
 const Seller          = require("../../models/Seller");
 const Order           = require("../../models/Order");
 const Product         = require("../../models/Product");
+const Config          = require("../../models/Config");
+const Notification    = require("../../models/Notification");
 const { uploadToImageKit } = require("../../utils/imagekit");
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +95,31 @@ exports.getSellerById = asyncHandler(async (req, res, next) => {
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
   res.status(200).json({ success: true, data: seller });
+});
+
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NOTIFICATIONS (SELLER)
+───────────────────────────────────────────────────────────────────────────── */
+
+exports.getMyNotifications = asyncHandler(async (req, res, next) => {
+  const notifications = await Notification.find({ userId: req.user._id })
+    .sort({ createdAt: -1 })
+    .limit(50);
+  
+  res.status(200).json({ success: true, notifications });
+});
+
+exports.markNotificationAsRead = asyncHandler(async (req, res, next) => {
+  const notification = await Notification.findOneAndUpdate(
+    { _id: req.params.notificationId, userId: req.user._id },
+    { isRead: true },
+    { new: true }
+  );
+  if (!notification) return next(new ErrorHandler("Notification not found.", 404));
+
+  res.status(200).json({ success: true, notification });
 });
 
 //* Get public seller store profile by store slug  GET /api/v1/sellers/slug/:slug
@@ -405,6 +432,11 @@ exports.uploadDocument = asyncHandler(async (req, res, next) => {
 
   if (seller.onboardingStep === "kyc_upload") {
     seller.onboardingStep = "bank_details";
+  }
+
+  // Update overall KYC status to indicate we have documents to review
+  if (seller.verificationStatus === "not_submitted" || seller.verificationStatus === "rejected") {
+    seller.verificationStatus = "documents_received";
   }
 
   await seller.save({ validateBeforeSave: false });
@@ -741,28 +773,150 @@ exports.setDefaultWarehouse = asyncHandler(async (req, res, next) => {
 
 //* Get seller analytics summary from cache  GET /api/v1/sellers/me/analytics
 exports.getSellerAnalytics = asyncHandler(async (req, res, next) => {
-  const seller = await Seller.findOne({ userId: req.user._id }).select(
-    "analyticsCache totalEarnings totalOrders totalProducts totalRefunds refundRate " +
-    "walletBalance pendingPayout sellerLevel commissionRate averageRating totalRatings"
-  );
-  if (!seller) return res.status(200).json({ success: true, data: null });
+  const seller = await Seller.findOne({ userId: req.user._id });
+  if (!seller) return next(new ErrorHandler("Seller not found.", 404));
+
+  const { period = "30d" } = req.query;
+  const end = new Date();
+  const start = new Date();
+  
+  if (period === "7d") start.setDate(start.getDate() - 7);
+  else if (period === "90d") start.setDate(start.getDate() - 90);
+  else start.setDate(start.getDate() - 30); // default 30d
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  const matchPeriod = { sellerId: seller._id, createdAt: { $gte: start, $lte: end } };
+
+  const [
+    generalStatsAgg,
+    statusAgg,
+    topProductsAgg,
+    revenueByDayAgg
+  ] = await Promise.all([
+    // General Stats
+    Order.aggregate([
+      { $match: matchPeriod },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          deliveredOrders: { $sum: { $cond: [{ $eq: ["$orderStatus", "delivered"] }, 1, 0] } },
+          returnedOrders: { $sum: { $cond: [{ $eq: ["$orderStatus", "returns"] }, 1, 0] } },
+          revenue: {
+            $sum: {
+              $cond: [
+                { $in: ["$orderStatus", ["delivered"]] },
+                "$pricing.total",
+                0
+              ]
+            }
+          },
+          productsSold: {
+            $sum: {
+              $cond: [
+                { $in: ["$orderStatus", ["delivered"]] },
+                { $sum: "$items.quantity" },
+                0
+              ]
+            }
+          }
+        }
+      }
+    ]),
+    
+    // Status breakdown
+    Order.aggregate([
+      { $match: matchPeriod },
+      { $group: { _id: "$orderStatus", count: { $sum: 1 } } }
+    ]),
+
+    // Top Products
+    Order.aggregate([
+      { $match: { ...matchPeriod, orderStatus: "delivered" } },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          name: { $first: "$items.name" },
+          imageUrl: { $first: "$items.image" },
+          salesCount: { $sum: "$items.quantity" },
+          revenue: { $sum: "$items.subtotal" }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 8 },
+      {
+        $project: {
+          productId: "$_id",
+          name: 1,
+          imageUrl: 1,
+          salesCount: 1,
+          revenue: 1,
+          _id: 0
+        }
+      }
+    ]),
+
+    // Revenue by Day
+    Order.aggregate([
+      { $match: { ...matchPeriod, orderStatus: "delivered" } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          revenue: { $sum: "$pricing.total" },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ])
+  ]);
+
+  const stats = generalStatsAgg[0] || {
+    totalOrders: 0,
+    deliveredOrders: 0,
+    returnedOrders: 0,
+    revenue: 0,
+    productsSold: 0
+  };
+
+  const aov = stats.deliveredOrders > 0 ? stats.revenue / stats.deliveredOrders : 0;
+  const returnsRate = stats.deliveredOrders > 0 ? (stats.returnedOrders / stats.deliveredOrders) * 100 : 0;
+  
+  // Fill missing dates in revenue array
+  const revenueByDayMap = new Map();
+  revenueByDayAgg.forEach(r => revenueByDayMap.set(r._id, r));
+  
+  const revenueByDay = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split("T")[0];
+    revenueByDay.push({
+      date: dateStr,
+      revenue: revenueByDayMap.get(dateStr)?.revenue || 0,
+      orders: revenueByDayMap.get(dateStr)?.orders || 0
+    });
+  }
+
+  const ordersByStatus = {};
+  statusAgg.forEach(s => { ordersByStatus[s._id] = s.count; });
 
   res.status(200).json({
-    success : true,
-    data    : {
-      cache          : seller.analyticsCache,
-      totalEarnings  : seller.totalEarnings,
-      totalOrders    : seller.totalOrders,
-      totalProducts  : seller.totalProducts,
-      totalRefunds   : seller.totalRefunds,
-      refundRate     : seller.refundRate,
-      walletBalance  : seller.walletBalance,
-      pendingPayout  : seller.pendingPayout,
-      sellerLevel    : seller.sellerLevel,
-      commissionRate : seller.commissionRate,
-      averageRating  : seller.averageRating,
-      totalRatings   : seller.totalRatings,
-    },
+    success: true,
+    data: {
+      period: { start, end },
+      revenue: stats.revenue,
+      orders: stats.totalOrders,
+      averageOrderValue: aov,
+      productsSold: stats.productsSold,
+      conversionRate: 0, // Placeholder as we do not track unique visitor sessions
+      returnsRate,
+      topProducts: topProductsAgg,
+      revenueByDay,
+      ordersByStatus
+    }
   });
 });
 
@@ -838,11 +992,46 @@ exports.verifySeller = asyncHandler(async (req, res, next) => {
   seller.verifiedAt          = new Date();
 
   if (status === "approved") {
+    if (!seller.store) seller.store = {};
     seller.store.isVerified   = true;
     seller.onboardingStep     = "completed";
+    
+    // Auto-approve all pending documents if the seller is approved
+    if (seller.documents && seller.documents.length > 0) {
+      seller.documents.forEach(doc => {
+        if (doc.status !== "approved") {
+          doc.status = "approved";
+          doc.reviewedBy = req.user._id;
+          doc.reviewedAt = new Date();
+        }
+      });
+    }
   }
 
   await seller.save({ validateBeforeSave: false });
+
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "verify_seller",
+      targetType: "seller",
+      targetId: String(seller._id),
+      description: `Seller KYC ${status}. Remarks: ${remarks || 'None'}`,
+    }
+  });
+
+  await Notification.create({
+    userId: seller.userId,
+    type: status === "approved" ? "seller_verified" : "general",
+    title: `Account ${status === "approved" ? "Verified" : "Rejected"}`,
+    message: status === "approved" 
+      ? "Your seller account has been verified!" 
+      : `Your seller account verification was rejected. Remarks: ${remarks || 'None'}`,
+    actionUrl: "/seller/dashboard"
+  });
 
   res.status(200).json({ success: true, message: `Seller ${status}.`, verificationStatus: seller.verificationStatus });
 });
@@ -861,6 +1050,26 @@ exports.suspendSeller = asyncHandler(async (req, res, next) => {
   seller.isActive           = false;
   await seller.save({ validateBeforeSave: false });
 
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "suspend_seller",
+      targetType: "seller",
+      targetId: String(seller._id),
+      description: `Suspended seller. Reason: ${reason}`,
+    }
+  });
+
+  await Notification.create({
+    userId: seller.userId,
+    type: "seller_suspended",
+    title: "Account Suspended",
+    message: `Your seller account has been suspended. Reason: ${reason}`,
+  });
+
   res.status(200).json({ success: true, message: "Seller suspended.", data: seller });
 });
 
@@ -874,6 +1083,27 @@ exports.unsuspendSeller = asyncHandler(async (req, res, next) => {
   seller.suspendedAt        = undefined;
   seller.isActive           = true;
   await seller.save({ validateBeforeSave: false });
+
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "unsuspend_seller",
+      targetType: "seller",
+      targetId: String(seller._id),
+      description: `Reinstated suspended seller.`,
+    }
+  });
+
+  await Notification.create({
+    userId: seller.userId,
+    type: "seller_unsuspended",
+    title: "Account Reinstated",
+    message: "Your seller account has been reinstated. You can now resume your operations.",
+    actionUrl: "/seller/dashboard"
+  });
 
   res.status(200).json({ success: true, message: "Seller reinstated.", data: seller });
 });
@@ -898,7 +1128,7 @@ exports.updateDocumentStatus = asyncHandler(async (req, res, next) => {
 
   if (!ALLOWED.includes(status)) return next(new ErrorHandler(`Invalid document status "${status}".`, 400));
 
-  const seller = await Seller.findById(req.params.id).select("documents");
+  const seller = await Seller.findById(req.params.id).select("documents userId verificationStatus");
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
   const doc = seller.documents.id(req.params.docId);
@@ -909,7 +1139,56 @@ exports.updateDocumentStatus = asyncHandler(async (req, res, next) => {
   doc.reviewedBy = req.user._id;
   doc.reviewedAt = new Date();
 
+  // If a document is approved, approve the entire seller so they can add products
+  if (status === "approved") {
+    seller.verificationStatus = "approved";
+    seller.verifiedAt = new Date();
+    seller.verifiedBy = req.user._id;
+    
+    if (!seller.store) seller.store = {};
+    seller.store.isVerified = true;
+    seller.onboardingStep = "completed";
+    
+    // Auto-approve all other pending documents
+    if (seller.documents && seller.documents.length > 0) {
+      seller.documents.forEach(d => {
+        if (d.status !== "approved") {
+          d.status = "approved";
+          d.reviewedBy = req.user._id;
+          d.reviewedAt = new Date();
+        }
+      });
+    }
+  } else if (status === "rejected") {
+    seller.verificationStatus = "rejected";
+    seller.verificationRemarks = remarks || "One or more KYC documents were rejected.";
+    seller.verifiedBy = req.user._id;
+    seller.verifiedAt = new Date();
+    if (seller.store) seller.store.isVerified = false;
+  }
+
   await seller.save({ validateBeforeSave: false });
+
+  await Config.create({
+    type: "audit_log",
+    audit: {
+      adminId: req.user._id,
+      adminName: `${req.user.firstName} ${req.user.lastName}`,
+      adminEmail: req.user.email,
+      action: "update_document",
+      targetType: "seller",
+      targetId: String(seller._id),
+      description: `Updated document (${doc.type}) status to ${status}. Remarks: ${remarks || 'None'}`,
+    }
+  });
+
+  await Notification.create({
+    userId: seller.userId,
+    type: status === "approved" ? "kyc_approved" : (status === "rejected" ? "kyc_rejected" : "general"),
+    title: `Document ${status === "approved" ? "Approved" : (status === "rejected" ? "Rejected" : "Updated")}`,
+    message: `Your ${doc.type} document has been marked as ${status}.${status === "rejected" && remarks ? ` Reason: ${remarks}` : ''}`,
+    actionUrl: "/seller/profile"
+  });
 
   res.status(200).json({ success: true, document: doc });
 });
@@ -1100,19 +1379,17 @@ exports.getSellerDashboard = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOne({ userId: req.user._id, deletedAt: null });
   if (!seller) return next(new ErrorHandler("Seller not found.", 404));
 
-  // Today's start and end date
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-  // Parallel fetches for Dashboard KPI
   const [
     todayOrdersCount,
     todayOrdersRevenueAgg,
     pendingOrdersCount,
-    pendingApprovalProductsCount,
-    lowStockProductsCount,
+    productsStats,
+    lowStockProducts,
     recentOrders
   ] = await Promise.all([
     Order.countDocuments({ sellerId: seller._id, createdAt: { $gte: startOfDay, $lte: endOfDay } }),
@@ -1120,13 +1397,33 @@ exports.getSellerDashboard = asyncHandler(async (req, res, next) => {
       { $match: { sellerId: seller._id, createdAt: { $gte: startOfDay, $lte: endOfDay } } },
       { $group: { _id: null, total: { $sum: "$pricing.total" } } }
     ]),
-    Order.countDocuments({ sellerId: seller._id, status: { $in: ["pending", "confirmed", "processing", "packed"] } }),
-    Product.countDocuments({ sellerId: seller._id, status: "pending" }),
-    Product.countDocuments({ sellerId: seller._id, "variants.totalStock": { $lt: 5 } }),
+    Order.countDocuments({ sellerId: seller._id, orderStatus: { $in: ["pending", "confirmed", "processing", "packed"] } }),
+    Product.aggregate([
+      { $match: { sellerId: seller._id, deletedAt: null } },
+      {
+        $group: {
+          _id: null,
+          totalActive: { $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] } },
+          totalDraft: { $sum: { $cond: [{ $eq: ["$status", "draft"] }, 1, 0] } },
+          pendingApproval: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+          hidden: { $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] } },
+          outOfStock: { $sum: { $cond: [{ $eq: ["$totalStock", 0] }, 1, 0] } },
+        }
+      }
+    ]),
+    Product.find({ sellerId: seller._id, "variants.totalStock": { $lt: 5 }, deletedAt: null })
+      .select("name sku variants")
+      .limit(5),
     Order.find({ sellerId: seller._id }).sort({ createdAt: -1 }).limit(5)
   ]);
 
   const todayRevenue = todayOrdersRevenueAgg.length > 0 ? todayOrdersRevenueAgg[0].total : 0;
+  const pStats = productsStats[0] || { totalActive: 0, totalDraft: 0, pendingApproval: 0, hidden: 0, outOfStock: 0 };
+  
+  const processedPayouts = seller.payouts?.filter(p => p.status === "processed") || [];
+  const lastPayoutDate = processedPayouts.length > 0 
+    ? processedPayouts.sort((a, b) => new Date(b.processedAt) - new Date(a.processedAt))[0].processedAt 
+    : null;
 
   res.status(200).json({
     success: true,
@@ -1134,9 +1431,27 @@ exports.getSellerDashboard = asyncHandler(async (req, res, next) => {
     todayOrders: todayOrdersCount,
     todayRevenue,
     pendingOrders: pendingOrdersCount,
-    pendingApprovalProducts: pendingApprovalProductsCount,
-    lowStockCount: lowStockProductsCount,
+    products: {
+      active: pStats.totalActive,
+      draft: pStats.totalDraft,
+      outOfStock: pStats.outOfStock,
+      hidden: pStats.hidden,
+      pendingApproval: pStats.pendingApproval
+    },
+    lowStockCount: pStats.outOfStock, // Map lowStockCount directly to out of stock for dashboard card
+    lowStockProducts: lowStockProducts.map(p => {
+      const lowVariant = p.variants?.find(v => v.totalStock < 5) || p.variants?.[0];
+      return {
+        name: p.name,
+        variantLabel: lowVariant ? `${lowVariant.color || ''} ${lowVariant.size || ''}`.trim() : '',
+        variantSku: lowVariant?.sku || p.sku,
+        stock: lowVariant?.totalStock || 0
+      };
+    }),
     walletBalance: seller.walletBalance || 0,
+    totalEarnings: seller.totalEarnings || 0,
+    pendingPayout: seller.pendingPayout || 0,
+    lastPayoutDate,
     recentOrders
   });
 });

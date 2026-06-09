@@ -122,10 +122,34 @@ const isModerator = asyncHandler(async (req, res, next) => {
   next();
 });
 
+const isVerifiedSeller = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    return next(new ErrorHandler("Please login to access this resource.", 401));
+  }
+
+  if (req.user.role === "admin") {
+    return next();
+  }
+  
+  if (req.user.role !== "seller") {
+    return next(new ErrorHandler("Access denied. Seller privileges required.", 403));
+  }
+
+  const Seller = require("../models/Seller");
+  const seller = await Seller.findOne({ userId: req.user._id });
+  
+  if (!seller || seller.verificationStatus !== "approved") {
+    return next(new ErrorHandler("Access denied. Your seller account must be verified by an admin to perform this action.", 403));
+  }
+  
+  next();
+});
+
 module.exports = {
   isAuthenticated,
   optionalAuth,
   isAdmin,
   isAuthorized,
   isModerator,
+  isVerifiedSeller,
 };

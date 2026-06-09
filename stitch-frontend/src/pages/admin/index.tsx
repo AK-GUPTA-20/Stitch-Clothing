@@ -84,6 +84,8 @@ export default function AdminPage() {
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
+  const [activeTotal, setActiveTotal] = useState(0);
+  const [suspendedTotal, setSuspendedTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -116,6 +118,8 @@ export default function AdminPage() {
       const res = await userService.adminGetUsers(params.toString());
       setUsers(res.users ?? []);
       setTotal(res.total ?? 0);
+      setActiveTotal(res.activeTotal ?? 0);
+      setSuspendedTotal(res.suspendedTotal ?? 0);
     } catch (err: any) {
       setError(err.message || 'Failed to load users');
     } finally {
@@ -253,8 +257,6 @@ export default function AdminPage() {
   if (!me || me.role !== 'admin') return null;
 
   const totalPages = Math.ceil(total / PER_PAGE);
-  const activeUsers = users.filter((u) => u.isActive && !u.isSuspended).length;
-  const suspendedUsers = users.filter((u) => u.isSuspended).length;
 
   const inputClass = 'w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder-stone-400 font-sans focus:outline-none focus:border-stone-400 focus:bg-white transition-all';
   const labelClass = 'block text-[10px] tracking-[0.14em] uppercase text-stone-500 font-sans font-medium mb-1.5';
@@ -268,8 +270,8 @@ export default function AdminPage() {
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard label="Total Users" value={total} icon={Users} color="bg-blue-50 text-blue-600" />
-            <StatCard label="Active" value={activeUsers} icon={CheckCircle2} color="bg-green-50 text-green-600" />
-            <StatCard label="Suspended" value={suspendedUsers} icon={Ban} color="bg-red-50 text-red-500" />
+            <StatCard label="Active" value={activeTotal} icon={CheckCircle2} color="bg-green-50 text-green-600" />
+            <StatCard label="Suspended" value={suspendedTotal} icon={Ban} color="bg-red-50 text-red-500" />
             <StatCard label="Shown" value={users.length} icon={SlidersHorizontal} color="bg-stone-100 text-stone-600" />
           </div>
 
@@ -398,40 +400,40 @@ export default function AdminPage() {
                         </td>
                         {/* Actions */}
                         <td className="px-5 py-4">
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => openModal(u, 'edit')}
-                              title="Edit user"
-                              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-all"
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              onClick={() => openModal(u, 'wallet')}
-                              title="Adjust wallet"
-                              className="p-1.5 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                            >
-                              <Wallet size={13} />
-                            </button>
-                            <button
-                              onClick={() => openModal(u, 'loyalty')}
-                              title="Adjust loyalty"
-                              className="p-1.5 text-stone-400 hover:text-[#7a5e1a] hover:bg-accent/10 rounded-lg transition-all"
-                            >
-                              <Star size={13} />
-                            </button>
-                            <button
-                              onClick={() => openModal(u, 'suspend')}
-                              title={u.isSuspended ? 'Unsuspend user' : 'Suspend user'}
-                              className={`p-1.5 rounded-lg transition-all ${
-                                u.isSuspended
-                                  ? 'text-green-500 hover:bg-green-50'
-                                  : 'text-stone-400 hover:text-orange-500 hover:bg-orange-50'
-                              }`}
-                            >
-                              <Ban size={13} />
-                            </button>
-                            {u._id !== me._id && (
+                          {u._id !== me._id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => openModal(u, 'edit')}
+                                title="Edit user"
+                                className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-all"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                onClick={() => openModal(u, 'wallet')}
+                                title="Adjust wallet"
+                                className="p-1.5 text-stone-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              >
+                                <Wallet size={13} />
+                              </button>
+                              <button
+                                onClick={() => openModal(u, 'loyalty')}
+                                title="Adjust loyalty"
+                                className="p-1.5 text-stone-400 hover:text-[#7a5e1a] hover:bg-accent/10 rounded-lg transition-all"
+                              >
+                                <Star size={13} />
+                              </button>
+                              <button
+                                onClick={() => openModal(u, 'suspend')}
+                                title={u.isSuspended ? 'Unsuspend user' : 'Suspend user'}
+                                className={`p-1.5 rounded-lg transition-all ${
+                                  u.isSuspended
+                                    ? 'text-green-500 hover:bg-green-50'
+                                    : 'text-stone-400 hover:text-orange-500 hover:bg-orange-50'
+                                }`}
+                              >
+                                <Ban size={13} />
+                              </button>
                               <button
                                 onClick={() => openModal(u, 'delete')}
                                 title="Delete user"
@@ -439,8 +441,10 @@ export default function AdminPage() {
                               >
                                 <Trash2 size={13} />
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-stone-400 font-sans italic tracking-wide">No actions for self</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -582,7 +586,7 @@ export default function AdminPage() {
               </div>
             </div>
             <div>
-              <label className={labelClass}>Amount ($)</label>
+              <label className={labelClass}>Amount (₹)</label>
               <input type="number" min="1" step="0.01" required value={walletForm.amount} onChange={(e) => setWalletForm((f) => ({ ...f, amount: e.target.value }))} className={inputClass} placeholder="0.00" />
             </div>
             <div>

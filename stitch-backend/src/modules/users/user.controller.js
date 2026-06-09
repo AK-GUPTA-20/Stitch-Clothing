@@ -982,14 +982,18 @@ exports.adminGetAllUsers = asyncHandler(async (req, res, next) => {
   const skip  = (page - 1) * limit;
   const sort  = { [sortBy]: order === "desc" ? -1 : 1 };
 
-  const [users, total] = await Promise.all([
+  const [users, total, activeTotal, suspendedTotal] = await Promise.all([
     User.find(filter).select(SAFE_FIELDS).sort(sort).skip(skip).limit(Number(limit)),
     User.countDocuments(filter),
+    User.countDocuments({ deletedAt: null, isActive: true, isSuspended: false }),
+    User.countDocuments({ deletedAt: null, isSuspended: true })
   ]);
 
   res.status(200).json({
     success : true,
     total,
+    activeTotal,
+    suspendedTotal,
     page    : Number(page),
     pages   : Math.ceil(total / limit),
     users,

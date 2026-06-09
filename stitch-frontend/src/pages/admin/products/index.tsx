@@ -65,7 +65,7 @@ export default function AdminProductsPage() {
     setActionLoading(id);
     try {
       const res = await productService.approveProduct(id);
-      setProducts((prev) => prev.map((p) => p._id === id ? (res.data || res.product) : p));
+      setProducts((prev) => prev.map((p) => p._id === id ? ((res as any).data || (res as any).product || res) : p));
       toast.success("Approved", `"${name}" is now live.`);
     } catch { toast.error?.("Error", "Could not approve."); }
     finally { setActionLoading(null); }
@@ -76,7 +76,7 @@ export default function AdminProductsPage() {
     setActionLoading(id);
     try {
       const res = await productService.rejectProduct(id, { reason: rejectReason });
-      setProducts((prev) => prev.map((p) => p._id === id ? (res.data || res.product) : p));
+      setProducts((prev) => prev.map((p) => p._id === id ? ((res as any).data || (res as any).product || res) : p));
       toast.success("Rejected", "Product has been rejected.");
       setRejectModal(null);
       setRejectReason("");
@@ -109,7 +109,7 @@ export default function AdminProductsPage() {
     setActionLoading(id);
     try {
       const res = await productService.restoreProduct(id);
-      setProducts((prev) => prev.map((p) => p._id === id ? (res.data || res.product) : p));
+      setProducts((prev) => prev.map((p) => p._id === id ? ((res as any).data || (res as any).product || res) : p));
       toast.success("Restored", `"${name}" restored.`);
     } catch { toast.error?.("Error", "Could not restore."); }
     finally { setActionLoading(null); }

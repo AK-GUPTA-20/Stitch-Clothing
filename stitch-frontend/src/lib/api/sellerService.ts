@@ -27,7 +27,6 @@ export interface Seller {
   coverUrl?: string;
   description?: string;
   status: 'pending' | 'verified' | 'suspended' | 'rejected';
-  kycStatus?: 'not_started' | 'pending' | 'verified' | 'rejected';
   kycRejectionReason?: string;
   rating?: number;
   totalOrders?: number;
@@ -50,8 +49,8 @@ export interface Seller {
     totalProducts?: number;
     totalOrders?: number;
   };
-  /** Verification status string used by PublicSellerProfile */
-  verificationStatus?: 'pending' | 'verified' | 'suspended' | 'rejected';
+  /** Verification status string used across the entire application as source of truth for KYC */
+  verificationStatus?: 'not_submitted' | 'documents_received' | 'under_review' | 'approved' | 'rejected' | 'suspended';
   bankVerificationStatus?: 'not_started' | 'pending' | 'verified' | 'rejected';
   level?: string;
   bank?: {

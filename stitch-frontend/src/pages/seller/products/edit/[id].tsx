@@ -36,7 +36,7 @@ function validateForm(form: any): FormErrors {
   else if (form.name.length > 150) errs.name = 'Product name must be 150 characters or less';
   if (!form.description || form.description.trim().length < 20) errs.description = 'Description must be at least 20 characters';
   else if (form.description.length > 5000) errs.description = 'Description must be 5000 characters or less';
-  if (!form.price || Number(form.price) <= 0) errs.price = 'Price must be greater than $0';
+  if (!form.price || Number(form.price) <= 0) errs.price = 'Price must be greater than ₹0';
   if (form.compareAtPrice && Number(form.compareAtPrice) > 0 && Number(form.compareAtPrice) <= Number(form.price)) {
     errs.compareAtPrice = 'Compare At price must be higher than the selling price';
   }
@@ -84,7 +84,7 @@ function Toggle({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-colors duration-200 ${
+        className={`relative inline-flex h-5 min-h-[20px] w-9 min-w-[36px] shrink-0 rounded-full border-2 transition-colors duration-200 ${
           checked ? "bg-stone-900 border-stone-900" : "bg-stone-200 border-stone-200"
         }`}
       >
@@ -128,7 +128,7 @@ export default function PortalEditProductPage() {
     setLoading(true);
     try {
       const res = await productService.getProductById(pid);
-      const p = res.data || res.product;
+      const p = (res as any).data || (res as any).product || res;
       setProduct(p);
       setForm({
         name: p.name,
@@ -218,7 +218,7 @@ export default function PortalEditProductPage() {
       };
 
       const res = await productService.updateProduct(product._id, payload);
-      const updatedProduct = res.data || res.product;
+      const updatedProduct = (res as any).data || (res as any).product || res;
       setProduct(updatedProduct);
       toast.success("Saved", "Product details updated successfully.");
     } catch (err: any) {
@@ -347,14 +347,14 @@ export default function PortalEditProductPage() {
                   </select>
                 </div>
                 <div>
-                  <FieldLabel>Price ($)</FieldLabel>
-                  <input type="number" min="0" value={form.price || ""} onChange={(e) => { set("price", e.target.value); if (touched.price) setFormErrors(v => ({ ...v, price: Number(e.target.value) <= 0 ? 'Must be greater than $0' : undefined })); }}
+                  <FieldLabel>Price (₹)</FieldLabel>
+                  <input type="number" min="0" value={form.price || ""} onChange={(e) => { set("price", e.target.value); if (touched.price) setFormErrors(v => ({ ...v, price: Number(e.target.value) <= 0 ? 'Must be greater than ₹0' : undefined })); }}
                     onBlur={() => setTouched(t => ({ ...t, price: true }))}
                     className={inputCls(formErrors.price ? 'border-red-300' : '')} placeholder="0" />
                   {formErrors.price && <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><span>⚠</span>{formErrors.price}</p>}
                 </div>
                 <div>
-                  <FieldLabel>Compare At ($)</FieldLabel>
+                  <FieldLabel>Compare At (₹)</FieldLabel>
                   <input type="number" min="0" value={form.compareAtPrice || ""} onChange={(e) => { set("compareAtPrice", e.target.value); if (touched.compareAtPrice) setFormErrors(v => ({ ...v, compareAtPrice: (Number(e.target.value) > 0 && Number(e.target.value) <= Number(form.price)) ? 'Must be higher than selling price' : undefined })); }}
                     onBlur={() => setTouched(t => ({ ...t, compareAtPrice: true }))}
                     className={inputCls(formErrors.compareAtPrice ? 'border-red-300' : '')} placeholder="Original price" />

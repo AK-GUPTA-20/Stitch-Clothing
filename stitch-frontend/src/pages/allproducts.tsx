@@ -471,7 +471,7 @@ export default function AllProductsPage() {
   }, []);
   
   // Advanced Filter State
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 50000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
@@ -512,7 +512,7 @@ export default function AllProductsPage() {
       category: activeCategory !== 'All' ? activeCategory.toLowerCase() : undefined,
       gender: activeGender !== 'all' ? activeGender : undefined,
       minPrice: priceRange[0] > 0 ? priceRange[0] : undefined,
-      maxPrice: priceRange[1] < 500 ? priceRange[1] : undefined,
+      maxPrice: priceRange[1] < 50000 ? priceRange[1] : undefined,
       sortBy: sortBy.includes('price') ? 'price' : (sortBy === 'rating' ? 'rating' : 'createdAt'),
       order: sortBy === 'price-asc' ? 'asc' : 'desc',
     };
@@ -602,13 +602,13 @@ export default function AllProductsPage() {
   const activeFiltersCount = 
     (activeCategory !== "All" ? 1 : 0) + 
     (activeGender !== "all" ? 1 : 0) + 
-    (priceRange[1] < 500 || priceRange[0] > 0 ? 1 : 0) +
+    (priceRange[1] < 50000 || priceRange[0] > 0 ? 1 : 0) +
     selectedSizes.length + selectedColors.length + selectedMaterials.length;
 
   const resetFilters = () => {
     setActiveCategory("All");
     setActiveGender("all");
-    setPriceRange([0, 500]);
+    setPriceRange([0, 50000]);
     setSelectedSizes([]);
     setSelectedColors([]);
     setSelectedMaterials([]);
@@ -938,13 +938,13 @@ export default function AllProductsPage() {
               <div>
                 <div className="flex items-center justify-between mb-8">
                   <p className="text-[10px] tracking-[0.3em] uppercase text-zinc-900 font-bold">Investment Limit</p>
-                  <p className="text-sm font-black text-zinc-900 tabular-nums">${priceRange[1]}.00</p>
+                  <p className="text-sm font-black text-zinc-900 tabular-nums">₹{priceRange[1]}</p>
                 </div>
                 <div className="relative pt-2 pb-6">
                   <div className="absolute top-1/2 left-0 w-full h-1.5 bg-zinc-100 rounded-full -translate-y-1/2" />
-                  <div className="absolute top-1/2 left-0 h-1.5 bg-zinc-900 rounded-full -translate-y-1/2 transition-all duration-75" style={{ width: `${(priceRange[1] / 500) * 100}%` }} />
-                  <input type="range" min={0} max={500} step={10} value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="w-full relative z-10 h-8 opacity-0 cursor-pointer" />
-                  <div className="absolute top-1/2 w-6 h-6 bg-white border-[3px] border-zinc-900 rounded-full -translate-y-1/2 pointer-events-none shadow-lg transition-all duration-75" style={{ left: `calc(${(priceRange[1] / 500) * 100}% - 12px)` }} />
+                  <div className="absolute top-1/2 left-0 h-1.5 bg-zinc-900 rounded-full -translate-y-1/2 transition-all duration-75" style={{ width: `${(priceRange[1] / 50000) * 100}%` }} />
+                  <input type="range" min={0} max={50000} step={500} value={priceRange[1]} onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])} className="w-full relative z-10 h-8 opacity-0 cursor-pointer" />
+                  <div className="absolute top-1/2 w-6 h-6 bg-white border-[3px] border-zinc-900 rounded-full -translate-y-1/2 pointer-events-none shadow-lg transition-all duration-75" style={{ left: `calc(${(priceRange[1] / 50000) * 100}% - 12px)` }} />
                 </div>
               </div>
             </div>

@@ -19,12 +19,11 @@ import {
   ArrowRight, SlidersHorizontal, MapPin, ExternalLink, ShoppingBag,
   Wallet, Clock,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-}
+
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -537,7 +536,7 @@ export default function SellerOrdersPage() {
       if (action === 'deliver') res = await orderService.sellerMarkDelivered(order._id);
       
       if (res) {
-        refreshOrder((res as any).data || (res as any).order);
+        refreshOrder((res as any).data || (res as any).order || res);
         queryClient.invalidateQueries({ queryKey: ['sellerWallet'] });
         queryClient.invalidateQueries({ queryKey: ['sellerDashboard'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -565,7 +564,7 @@ export default function SellerOrdersPage() {
     try {
       const res = await orderService.sellerUpdateStatus(order._id, newStatus);
       if (res && ((res as any).data || (res as any).order)) {
-        refreshOrder((res as any).data || (res as any).order);
+        refreshOrder((res as any).data || (res as any).order || res);
         queryClient.invalidateQueries({ queryKey: ['sellerWallet'] });
         queryClient.invalidateQueries({ queryKey: ['sellerDashboard'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -595,7 +594,7 @@ export default function SellerOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.sellerUpdateReturnStatus(selectedOrder._id, { status: returnStatus as any, adminNote: returnNote });
-      refreshOrder((res as any).data || (res as any).order);
+      refreshOrder((res as any).data || (res as any).order || res);
       queryClient.invalidateQueries({ queryKey: ['sellerWallet'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Return status updated');
@@ -613,7 +612,7 @@ export default function SellerOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.dispatchOrder(selectedOrder._id, dispatchForm);
-      refreshOrder((res as any).data || (res as any).order);
+      refreshOrder((res as any).data || (res as any).order || res);
       queryClient.invalidateQueries({ queryKey: ['sellerWallet'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success('Order dispatched', `AWB: ${dispatchForm.awbNumber}`);
@@ -631,7 +630,7 @@ export default function SellerOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.updateTracking(selectedOrder._id, trackingForm);
-      refreshOrder((res as any).data || (res as any).order);
+      refreshOrder((res as any).data || (res as any).order || res);
       toast.success('Tracking updated');
       setModal(null);
       setSelectedOrder(null);
@@ -648,7 +647,7 @@ export default function SellerOrdersPage() {
     setActionLoading(true);
     try {
       const res = await orderService.sellerCancelOrder(selectedOrder._id, { reason: cancelReason });
-      refreshOrder((res as any).data || (res as any).order);
+      refreshOrder((res as any).data || (res as any).order || res);
       toast.success('Order cancelled', `${selectedOrder.orderId} has been cancelled.`);
       setModal(null);
       setSelectedOrder(null);

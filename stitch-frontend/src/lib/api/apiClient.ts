@@ -121,16 +121,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   // Transparently unwrap the new standardized ResponseFormatter format
-  if (data && typeof data === 'object' && data.status === 'success' && 'data' in data) {
-    // If it's an array and has pagination meta, return an object containing the array + meta
-    if (Array.isArray(data.data) && data.meta?.pagination) {
+  if (data && typeof data === 'object' && (data.status === 'success' || data.success === true) && 'data' in data) {
+    // If it's an array, ALWAYS return an object so `res.data` is accessible
+    if (Array.isArray(data.data)) {
       return {
         success: true,
         data: data.data,
-        pagination: data.meta.pagination,
-        total: data.meta.pagination.total,
-        page: data.meta.pagination.page,
-        pages: data.meta.pagination.totalPages,
+        pagination: data.meta?.pagination || (typeof data.total === 'number' ? {
+          total: data.total,
+          page: data.page,
+          totalPages: data.pages,
+        } : undefined),
+        total: data.meta?.pagination?.total ?? data.total ?? data.count ?? data.data.length,
+        page: data.meta?.pagination?.page ?? data.page ?? 1,
+        pages: data.meta?.pagination?.totalPages ?? data.pages ?? 1,
         count: data.data.length
       } as unknown as T;
     }
