@@ -63,23 +63,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = tokenStore.getAccess();
-      if (token) {
-        try {
-          const res = await userService.getProfile();
-          if (res.success) {
-            setUser(normalizeUser(res.user));
-          }
-        } catch (error: any) {
-          console.error('Failed to restore session:', error);
-          // Token is likely invalid or expired (and refresh failed).
-          if (error?.status === 401 || error?.status === 403) {
-            tokenStore.clear();
-          }
-        } finally {
-          setIsLoading(false);
+      try {
+        const res = await userService.getProfile();
+        if (res.success) {
+          setUser(normalizeUser(res.user));
         }
-      } else {
+      } catch (error: any) {
+        // If 401/403, user is just not logged in (no active cookie session)
+        if (error?.status !== 401 && error?.status !== 403) {
+          console.error('Failed to restore session:', error);
+        }
+      } finally {
         setIsLoading(false);
       }
     };
