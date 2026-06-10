@@ -3,6 +3,10 @@
 const asyncHandler = require("../middleware/asyncHandler");
 const ErrorHandler    = require("../middleware/error");
 const Config          = require("../models/Config");
+const mongoSanitize   = require("express-mongo-sanitize");
+const sanitizeBody    = require("../utils/sanitizeBody");
+const pick            = require("../utils/pick");
+const sanitizeRegex   = require("../utils/sanitizeRegex");
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS
@@ -57,7 +61,10 @@ exports.getPublicSettings = asyncHandler(async (req, res) => {
 
 //* Get a single public key-value config by key  GET /api/v1/configs/public/:key
 exports.getPublicConfigByKey = asyncHandler(async (req, res, next) => {
-  const config = await Config.findOne({ key: req.params.key, isPublic: true, type: "platform_settings" });
+  if (typeof req.params.key !== "string") {
+    return next(new ErrorHandler("Invalid key format.", 400));
+  }
+  const config = await Config.findOne({ key: mongoSanitize.sanitize(req.params.key), isPublic: true, type: "platform_settings" });
   if (!config) return next(new ErrorHandler("Config not found or not public.", 404));
 
   res.status(200).json({ success: true, key: config.key, value: config.value });
@@ -81,9 +88,12 @@ exports.getPublicFAQs = asyncHandler(async (req, res) => {
 
 //* Get a content page by slug (static page, policy, banner)  GET /api/v1/configs/content/slug/:slug
 exports.getContentBySlug = asyncHandler(async (req, res, next) => {
+  if (typeof req.params.slug !== "string") {
+    return next(new ErrorHandler("Invalid slug format.", 400));
+  }
   const doc = await Config.findOne({
     type               : "content_page",
-    "content.slug"     : req.params.slug.toLowerCase(),
+    "content.slug"     : mongoSanitize.sanitize(req.params.slug).toLowerCase(),
     "content.isActive" : true,
   }).select("-audit -webhook");
 
@@ -325,7 +335,7 @@ exports.updatePaymentGateway = asyncHandler(async (req, res, next) => {
   if (!gw) return next(new ErrorHandler("Payment gateway not found.", 404));
 
   const ALLOWED = ["displayName", "environment", "isActive", "supportedMethods", "minAmount", "maxAmount", "logoUrl", "keyId", "keySecret", "webhookSecret"];
-  ALLOWED.forEach((f) => { if (req.body[f] !== undefined) gw[f] = req.body[f]; });
+  Object.assign(gw, sanitizeBody(ALLOWED, req.body));
 
   doc.updatedBy = req.user._id;
   await doc.save({ validateBeforeSave: false });
@@ -422,7 +432,8 @@ exports.updateTaxSlab = asyncHandler(async (req, res, next) => {
     doc.settings.tax.slabs.forEach((s) => { s.isDefault = false; });
   }
 
-  Object.assign(slab, req.body);
+  const ALLOWED_SLAB_FIELDS = ["name", "rate", "minAmount", "maxAmount", "isDefault"];
+  Object.assign(slab, pick(req.body, ALLOWED_SLAB_FIELDS));
   doc.updatedBy = req.user._id;
   await doc.save({ validateBeforeSave: false });
 
@@ -545,7 +556,8 @@ exports.updateLoyaltyRule = asyncHandler(async (req, res, next) => {
   const rule = doc.settings.loyalty.rules.id(req.params.ruleId);
   if (!rule) return next(new ErrorHandler("Loyalty rule not found.", 404));
 
-  Object.assign(rule, req.body);
+  const ALLOWED_RULE_FIELDS = ["action", "pointsPerUnit", "maxPointsPerAction", "isActive"];
+  Object.assign(rule, pick(req.body, ALLOWED_RULE_FIELDS));
   doc.updatedBy = req.user._id;
   await doc.save({ validateBeforeSave: false });
 
@@ -588,7 +600,8 @@ exports.updateLoyaltyTier = asyncHandler(async (req, res, next) => {
   const tier = doc.settings.loyalty.tiers.id(req.params.tierId);
   if (!tier) return next(new ErrorHandler("Loyalty tier not found.", 404));
 
-  Object.assign(tier, req.body);
+  const ALLOWED_TIER_FIELDS = ["name", "minPoints", "rewardMultiplier", "perks"];
+  Object.assign(tier, pick(req.body, ALLOWED_TIER_FIELDS));
   doc.updatedBy = req.user._id;
   await doc.save({ validateBeforeSave: false });
 
@@ -723,7 +736,8 @@ exports.getAuditLogs = asyncHandler(async (req, res) => {
   if (targetType) filter["audit.targetType"] = targetType;
   if (action)     filter["audit.action"]     = new RegExp(action, "i");
   if (search) {
-    const re = new RegExp(search, "i");
+    const safeSearch = sanitizeRegex(search);
+    const re = new RegExp(safeSearch, "i");
     filter.$or = [
       { "audit.adminName"   : re },
       { "audit.adminEmail"  : re },
@@ -828,10 +842,11 @@ exports.createContentPage = asyncHandler(async (req, res, next) => {
     if (slugExists) return next(new ErrorHandler("A content page with this slug already exists.", 409));
   }
 
+  const ALLOWED_CONTENT_FIELDS = ["title", "body", "metaTitle", "metaDescription", "slug", "contentType"];
   const doc = await Config.create({
     type      : "content_page",
     updatedBy : req.user._id,
-    content   : { ...req.body, updatedAt: new Date() },
+    content   : { ...pick(req.body, ALLOWED_CONTENT_FIELDS), updatedAt: new Date() },
   });
 
   await _writeAudit(req, "CREATE_CONTENT", "setting", doc._id, `Content "${req.body.contentType}" created.`);
@@ -940,8 +955,10 @@ exports.createConfig = asyncHandler(async (req, res, next) => {
     if (exists) return next(new ErrorHandler(`Config key "${req.body.key}" already exists.`, 409));
   }
 
-  req.body.updatedBy = req.user._id;
-  const config = await Config.create(req.body);
+  const ALLOWED_CONFIG_FIELDS = ["type", "key", "value", "isActive", "description"];
+  const safeData = pick(req.body, ALLOWED_CONFIG_FIELDS);
+  safeData.updatedBy = req.user._id;
+  const config = await Config.create(safeData);
 
   await _writeAudit(req, "CREATE_CONFIG", "setting", config._id, `Config "${req.body.key || req.body.type}" created.`);
 
@@ -953,11 +970,13 @@ exports.updateConfigByKey = asyncHandler(async (req, res, next) => {
   const before = await Config.findOne({ key: req.params.key });
   if (!before) return next(new ErrorHandler("Config not found.", 404));
 
-  req.body.updatedBy = req.user._id;
+  const ALLOWED_CONFIG_FIELDS = ["value", "isActive", "description"];
+  const safeData = pick(req.body, ALLOWED_CONFIG_FIELDS);
+  safeData.updatedBy = req.user._id;
 
   const config = await Config.findOneAndUpdate(
     { key: req.params.key },
-    { $set: req.body },
+    { $set: safeData },
     { new: true, runValidators: true }
   );
 

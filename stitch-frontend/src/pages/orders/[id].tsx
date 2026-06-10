@@ -20,6 +20,7 @@ import {
   RotateCcw, DollarSign, X, Download, ExternalLink, AlertCircle,
   CheckCircle2, Clock, Tag, Copy, Check,
 } from 'lucide-react';
+import { generateSecureId } from '@/lib/utils/secureRandom';
 import { formatCurrency } from '@/lib/utils';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -234,10 +235,10 @@ export default function OrderDetailPage() {
     setActionLoading(true);
     try {
       const payload = {
-        gatewayOrderId: `pay_${Math.random().toString(36).substring(2, 9)}`,
-        gatewayPaymentId: `pay_id_${Math.random().toString(36).substring(2, 9)}`,
-        gatewaySignature: `sig_${Math.random().toString(36).substring(2, 9)}`,
-        transactionId: `tx_${Math.random().toString(36).substring(2, 9)}`,
+        gatewayOrderId: `pay_${generateSecureId(8)}`,
+        gatewayPaymentId: `pay_id_${generateSecureId(8)}`,
+        gatewaySignature: `sig_${generateSecureId(8)}`,
+        transactionId: `tx_${generateSecureId(8)}`,
       };
       await orderService.verifyPayment(order._id, payload as any);
       toast.success('Payment Verified', 'Payment was simulated and verified successfully.');

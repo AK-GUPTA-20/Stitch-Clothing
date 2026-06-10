@@ -115,7 +115,7 @@ function EmptyOrders({ filtered }: { filtered: boolean }) {
               Your order history will appear here once you make your first purchase.
             </p>
             <Link
-              href="/#shop"
+              href="/allproducts"
               className="inline-flex items-center gap-2 bg-stone-900 text-stone-50 px-8 py-3.5 text-[11px] tracking-[0.2em] uppercase font-medium hover:bg-stone-800 transition-colors"
             >
               Start Shopping <ArrowRight size={13} />

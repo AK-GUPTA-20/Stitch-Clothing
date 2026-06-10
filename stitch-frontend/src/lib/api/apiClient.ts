@@ -3,30 +3,14 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // ── Token Storage Abstraction ────────────────────────────────────────────────
-// Centralises all localStorage access for tokens so it's easy to migrate
-// to httpOnly cookies / in-memory storage in the future.
+// Tokens are now securely managed via httpOnly cookies.
+// The frontend never touches the raw JWT.
 export const tokenStore = {
-  getAccess: (): string | null => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('accessToken');
-  },
-  getRefresh: (): string | null => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('refreshToken');
-  },
-  setAccess: (token: string): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('accessToken', token);
-  },
-  setRefresh: (token: string): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('refreshToken', token);
-  },
-  clear: (): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-  },
+  getAccess: (): string | null => null,
+  getRefresh: (): string | null => null,
+  setAccess: (token: string): void => {},
+  setRefresh: (token: string): void => {},
+  clear: (): void => {},
 };
 
 // ── Error Class ───────────────────────────────────────────────────────────────
@@ -55,15 +39,17 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers.set('Content-Type', 'application/json');
   }
 
-  if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
+  // Remove manual Authorization header injection; cookies handle it
+  // if (accessToken) {
+  //   headers.set('Authorization', `Bearer ${accessToken}`);
+  // }
 
   const url = `${API_BASE_URL}${endpoint}`;
 
   let response: Response;
   try {
-    response = await fetch(url, { ...options, headers });
+    // Include cookies in cross-origin requests
+    response = await fetch(url, { ...options, headers, credentials: 'include' });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Network error: Failed to fetch';
     throw new ApiError(0, msg, error);
@@ -87,9 +73,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
             if (refreshData.refreshToken) {
               tokenStore.setRefresh(refreshData.refreshToken);
             }
-            // Retry the original request with the new token
-            headers.set('Authorization', `Bearer ${refreshData.accessToken}`);
-            response = await fetch(url, { ...options, headers });
+            // Retry the original request with the new cookie
+            response = await fetch(url, { ...options, headers, credentials: 'include' });
           } else {
             // Refresh succeeded but returned no token — treat as failure
             tokenStore.clear();

@@ -9,6 +9,7 @@ import { useGetMe } from "@/lib/hooks/useSeller";
 import { CreateProductPayload, CreateVariantPayload } from "@/lib/types/product.types";
 import { useToast } from "@/lib/context/ToastContext";
 import { generateSlug, getDeterministicObjectId } from "@/lib/utils";
+import { generateSecureId } from "@/lib/utils/secureRandom";
 import {
   ArrowLeft, Plus, Trash2, RefreshCw, X, ImagePlus, CheckCircle2,
 } from "lucide-react";
@@ -299,7 +300,7 @@ export default function PortalNewProductPage() {
 
         for (const v of variants) {
           if (!v.stock) continue;
-          const generatedSku = v.sku || `${form.name.substring(0, 3).toUpperCase()}-${v.size || "SZ"}-${v.color || "CL"}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+          const generatedSku = v.sku || `${form.name.substring(0, 3).toUpperCase()}-${v.size || "SZ"}-${v.color || "CL"}-${generateSecureId(4).toUpperCase()}`;
           const vp: CreateVariantPayload = {
             sku: generatedSku.toUpperCase(),
             price: v.price ? Number(v.price) : Number(form.price),

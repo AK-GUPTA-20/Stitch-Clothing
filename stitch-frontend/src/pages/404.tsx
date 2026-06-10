@@ -32,7 +32,7 @@ export default function NotFound() {
                   Go Home <ArrowRight size={13} />
                 </Link>
                 <Link
-                  href="/#shop"
+                  href="/allproducts"
                   className="inline-flex items-center justify-center gap-2 border border-stone-200 text-stone-700 px-7 py-3.5 text-[11px] tracking-[0.2em] uppercase font-medium hover:border-stone-900 transition-colors"
                 >
                   Shop All

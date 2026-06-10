@@ -539,7 +539,7 @@ export default function App() {
                 ))}
               </div>
 
-              <a href="#" className="group inline-flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-stone-900 border-b-2 border-stone-900 pb-1 hover:text-amber-600 hover:border-amber-600 transition-colors">
+              <a href="/pages/about-us" className="group inline-flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-stone-900 border-b-2 border-stone-900 pb-1 hover:text-amber-600 hover:border-amber-600 transition-colors">
                 Read our full story <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </a>
             </ScrollReveal>
@@ -553,7 +553,7 @@ export default function App() {
           <div className="text-center mb-16">
             <p className="text-[10px] tracking-[0.4em] uppercase text-stone-400 font-bold mb-4">Community</p>
             <h2 className="font-serif text-4xl sm:text-5xl text-stone-900 font-light italic mb-4">As Seen On You</h2>
-            <a href="#" className="inline-flex items-center gap-2 text-xs font-bold text-stone-500 hover:text-amber-600 transition-colors">
+            <a href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"} className="inline-flex items-center gap-2 text-xs font-bold text-stone-500 hover:text-amber-600 transition-colors">
               <Instagram size={14} /> @stitch_studio
             </a>
           </div>

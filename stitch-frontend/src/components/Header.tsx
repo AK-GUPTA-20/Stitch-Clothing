@@ -206,7 +206,7 @@ const TopUtilityBar = memo(function TopUtilityBar() {
           Track Order
         </Link>
         <Link
-          href="/#help"
+          href="/faq"
           className="flex items-center gap-1 text-[10px] text-stone-400 hover:text-stone-200 transition-colors tracking-wide"
         >
           <Phone size={11} />
@@ -510,8 +510,8 @@ export default function Header() {
                               items.push({ icon: MapPin, label: "Addresses", sub: "Manage delivery addresses", href: "/profile?tab=addresses" });
                               if (user.role === "admin") {
                                 items.push(
-                                  { icon: Shield, label: "Admin Portal", sub: "Manage users and permissions", href: "/portal/admin/seller" },
-                                  { icon: Package, label: "Moderation Catalog", sub: "Approve or reject catalog items", href: "/portal/admin/seller/products" }
+                                  { icon: Shield, label: "Admin Portal", sub: "Manage users and permissions", href: "/admin/sellers" },
+                                  { icon: Package, label: "Moderation Catalog", sub: "Approve or reject catalog items", href: "/admin/products" }
                                 );
                               } else if (user.role === "seller") {
                                 items.push(
@@ -720,7 +720,7 @@ export default function Header() {
                   {["All New In", "Best Sellers", "Trending Now", "Under ₹100", "Sustainable Edit"].map((tag) => (
                     <Link
                       key={tag}
-                      href="/#shop"
+                      href="/allproducts"
                       onClick={() => setMegaOpen(null)}
                       className="text-[10px] tracking-widest uppercase text-stone-400 hover:text-stone-900 transition-colors flex items-center gap-1"
                     >
@@ -916,8 +916,8 @@ export default function Header() {
                       ];
                       if (user?.role === "admin") {
                         items.push(
-                          { icon: Shield, label: "Admin Portal", href: "/portal/admin/seller" },
-                          { icon: Package, label: "Moderation Catalog", href: "/portal/admin/seller/products" }
+                          { icon: Shield, label: "Admin Portal", href: "/admin/sellers" },
+                          { icon: Package, label: "Moderation Catalog", href: "/admin/products" }
                         );
                       } else if (user?.role === "seller") {
                         items.push(

@@ -7,7 +7,9 @@ const Product         = require("../../models/Product");
 const Config          = require("../../models/Config");
 const Notification    = require("../../models/Notification");
 const Seller          = require("../../models/Seller");
-const { uploadToImageKit } = require("../../utils/imagekit");
+const { uploadToImageKit }  = require("../../utils/imagekit");
+const pick                  = require("../../utils/pick");
+const sanitizeRegex         = require("../../utils/sanitizeRegex");
 const ResponseFormatter = require("../../utils/responseFormatter");
 
 
@@ -23,8 +25,10 @@ function _recomputeRatings(product) {
   let sum = 0;
 
   for (const r of approved) {
-    dist[r.rating] = (dist[r.rating] || 0) + 1;
-    sum += r.rating;
+    if (Number.isInteger(r.rating) && r.rating >= 1 && r.rating <= 5) {
+      dist[r.rating] = (dist[r.rating] || 0) + 1;
+      sum += r.rating;
+    }
     if (r.sizeAccuracy && sizeAcc[r.sizeAccuracy] !== undefined) {
       sizeAcc[r.sizeAccuracy] += 1;
     }
@@ -117,21 +121,23 @@ exports.getProducts = asyncHandler(async (req, res) => {
     const mongoose = require("mongoose");
     const Seller = require("../../models/Seller");
     let sellerIds = [sellerId];
-    if (mongoose.Types.ObjectId.isValid(sellerId)) {
+    if (typeof sellerId === "string" && mongoose.Types.ObjectId.isValid(sellerId)) {
       const sellerDoc = await Seller.findOne({ $or: [{ _id: sellerId }, { userId: sellerId }] });
       if (sellerDoc) {
         sellerIds = [sellerDoc._id, sellerDoc.userId];
       }
+    } else {
+      return next(new ErrorHandler("Invalid seller ID format.", 400));
     }
     filter.sellerId = { $in: sellerIds };
   }
   if (gender)         filter.gender             = gender;
   if (fit)            filter.fit                = fit;
-  if (pattern)        filter.pattern            = new RegExp(pattern, "i");
-  if (neckType)       filter.neckType           = new RegExp(neckType, "i");
-  if (sleeveType)     filter.sleeveType         = new RegExp(sleeveType, "i");
-  if (style)          filter.style              = new RegExp(style, "i");
-  if (fabric)         filter.fabric             = new RegExp(fabric, "i");
+  if (pattern)        filter.pattern            = new RegExp(sanitizeRegex(pattern), "i");
+  if (neckType)       filter.neckType           = new RegExp(sanitizeRegex(neckType), "i");
+  if (sleeveType)     filter.sleeveType         = new RegExp(sanitizeRegex(sleeveType), "i");
+  if (style)          filter.style              = new RegExp(sanitizeRegex(style), "i");
+  if (fabric)         filter.fabric             = new RegExp(sanitizeRegex(fabric), "i");
   if (tags)           filter.tags               = { $in: tags.split(",").map((t) => t.trim().toLowerCase()) };
   if (occasion)       filter.occasion           = { $in: occasion.split(",").map((o) => o.trim()) };
   if (isFeatured)     filter.isFeatured         = isFeatured === "true";
@@ -201,8 +207,13 @@ exports.searchProducts = asyncHandler(async (req, res) => {
     return res.status(200).json({ success: true, count: 0, data: [] });
   }
 
+  if (typeof q !== "string") {
+    return next(new ErrorHandler("Invalid search query format.", 400));
+  }
+  const sanitizedQ = q.replace(/[${}]/g, "");
+
   const products = await Product.find(
-    { $text: { $search: q }, isActive: true, status: "approved", deletedAt: null },
+    { $text: { $search: sanitizedQ }, isActive: true, status: "approved", deletedAt: null },
     { score: { $meta: "textScore" } }
   )
     .populate("seller")
@@ -258,6 +269,10 @@ exports.getRelatedProducts = asyncHandler(async (req, res, next) => {
     ...(product.frequentlyBoughtWith || []),
   ];
 
+  const mongoose = require("mongoose");
+  if (!Array.isArray(ids) || !ids.every(id => mongoose.Types.ObjectId.isValid(id))) {
+    return next(new ErrorHandler("Invalid related product IDs.", 400));
+  }
   let related;
   if (ids.length > 0) {
     related = await Product.find({ _id: { $in: ids }, isActive: true, deletedAt: null })
@@ -380,22 +395,21 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
     req.body.approvedBy = req.user._id;
   }
 
-  const product = await Product.create(req.body);
+  const ALLOWED_PRODUCT_FIELDS = ["name", "description", "basePrice", "salePrice", "category", "brand", "tags", "images", "variants", "isInStock", "status", "isActive", "publishedAt", "approvedAt", "approvedBy", "sellerId"];
+  const safeData = pick(req.body, ALLOWED_PRODUCT_FIELDS);
+  const product = await Product.create(safeData);
 
   res.status(201).json({ success: true, data: product });
 });
 
 //* Update product fields  PUT /api/v1/products/:id
 exports.updateProduct = asyncHandler(async (req, res, next) => {
-  // Never allow direct mutation of computed/audit fields
-  const PROTECTED = ["averageRating", "totalRatings", "totalReviews", "ratingDistribution",
-    "viewCount", "salesCount", "wishlistCount", "shareCount", "approvedBy", "approvedAt",
-    "deletedAt", "reviews"];
-  PROTECTED.forEach((f) => delete req.body[f]);
+  const ALLOWED_PRODUCT_FIELDS = ["name", "description", "basePrice", "salePrice", "category", "brand", "tags", "images", "variants", "isInStock", "status", "isActive", "isFeatured"];
+  const updates = pick(req.body, ALLOWED_PRODUCT_FIELDS);
 
   const product = await Product.findByIdAndUpdate(
     req.params.id,
-    { $set: req.body },
+    { $set: updates },
     { new: true, runValidators: true }
   );
 
@@ -622,12 +636,8 @@ exports.updateVariant = asyncHandler(async (req, res, next) => {
   const variant = product.variants.id(req.params.variantId);
   if (!variant) return next(new ErrorHandler("Variant not found", 404));
 
-  // Never allow direct overwrite of computed stock fields via this route
-  delete req.body.totalStock;
-  delete req.body.reservedStock;
-  delete req.body.soldCount;
-
-  Object.assign(variant, req.body);
+  const ALLOWED_VARIANT_FIELDS = ["sku", "attributes", "priceAdjustment", "images", "isActive", "barcode"];
+  Object.assign(variant, pick(req.body, ALLOWED_VARIANT_FIELDS));
   await product.save();
 
   res.status(200).json({ success: true, variants: product.variants });

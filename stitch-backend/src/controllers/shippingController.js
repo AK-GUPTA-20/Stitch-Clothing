@@ -3,6 +3,9 @@
 const asyncHandler = require("../middleware/asyncHandler");
 const ErrorHandler    = require("../middleware/error");
 const Shipping        = require("../models/Shipping");
+const mongoSanitize   = require("express-mongo-sanitize");
+const sanitizeBody    = require("../utils/sanitizeBody");
+const pick            = require("../utils/pick");
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS
@@ -58,7 +61,7 @@ exports.getShippingProfiles = asyncHandler(async (req, res) => {
   const skip = (Number(page) - 1) * Number(limit);
 
   const [profiles, total] = await Promise.all([
-    Shipping.find(filter)
+    Shipping.find(mongoSanitize.sanitize(filter))
       .select("-shipments -integrations")
       .sort({ isDefault: -1, createdAt: -1 })
       .skip(skip)
@@ -206,23 +209,25 @@ exports.createShippingProfile = asyncHandler(async (req, res, next) => {
     await Shipping.updateMany({}, { $set: { isDefault: false } });
   }
 
-  const shipping = await Shipping.create(req.body);
+  const ALLOWED_SHIPPING_FIELDS = ["name", "code", "description", "isDefault", "isActive"];
+  const safeData = pick(req.body, ALLOWED_SHIPPING_FIELDS);
+  const shipping = await Shipping.create(safeData);
 
   res.status(201).json({ success: true, data: shipping });
 });
 
 //* Update core fields of a shipping profile  PUT /api/v1/shipping/:id
 exports.updateShippingProfile = asyncHandler(async (req, res, next) => {
-  const PROTECTED = ["rateSlabs", "regions", "integrations", "shipments", "blacklistedPincodes"];
-  PROTECTED.forEach((f) => delete req.body[f]);
+  const ALLOWED_SHIPPING_FIELDS = ["name", "code", "description", "isDefault", "isActive"];
+  const updates = pick(req.body, ALLOWED_SHIPPING_FIELDS);
 
-  if (req.body.isDefault) {
+  if (updates.isDefault) {
     await Shipping.updateMany({ _id: { $ne: req.params.id } }, { $set: { isDefault: false } });
   }
 
   const shipping = await Shipping.findByIdAndUpdate(
     req.params.id,
-    { $set: req.body },
+    { $set: updates },
     { new: true, runValidators: true }
   ).select("-shipments");
 
@@ -398,7 +403,7 @@ exports.updateRateSlab = asyncHandler(async (req, res, next) => {
   if (!slab) return next(new ErrorHandler("Rate slab not found.", 404));
 
   const ALLOWED = ["courier", "minWeight", "maxWeight", "weightUnit", "baseCharge", "perKgCharge", "fuelSurcharge", "estimatedDays"];
-  ALLOWED.forEach((f) => { if (req.body[f] !== undefined) slab[f] = req.body[f]; });
+  Object.assign(slab, sanitizeBody(ALLOWED, req.body));
 
   await shipping.save({ validateBeforeSave: false });
 
@@ -525,7 +530,7 @@ exports.updateIntegration = asyncHandler(async (req, res, next) => {
   if (!integration) return next(new ErrorHandler("Integration not found.", 404));
 
   const ALLOWED = ["apiKey", "apiSecret", "webhookSecret", "accountId", "isSandbox"];
-  ALLOWED.forEach((f) => { if (req.body[f] !== undefined) integration[f] = req.body[f]; });
+  Object.assign(integration, sanitizeBody(ALLOWED, req.body));
 
   await shipping.save({ validateBeforeSave: false });
 

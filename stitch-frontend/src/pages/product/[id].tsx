@@ -736,7 +736,7 @@ function ProductDetail({
               </div>
 
               {/* ── Product Info ──────────────────────────────────────── */}
-              <div className="flex flex-col lg:sticky lg:top-[calc(var(--h-header,112px)+2rem)] lg:self-start lg:max-h-[calc(100vh-var(--h-header,112px)-4rem)] lg:overflow-y-auto scrollbar-hide">
+              <div className="flex flex-col">
 
                 {/* Header */}
                 <div className="mb-6 pb-6 border-b border-stone-100">

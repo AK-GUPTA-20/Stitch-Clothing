@@ -1,7 +1,23 @@
 const { Resend } = require("resend");
+const sanitizeHtml = require("sanitize-html");
 
 // Initialize Resend with the API key from environment variables
 const resend = new Resend(process.env.RESEND_KEY);
+
+/**
+ * Safely sanitizes user-provided content before embedding in HTML emails.
+ * Prevents Stored XSS in email clients (CWE-79).
+ */
+const safeEmailContent = (userInput) => {
+  if (typeof userInput !== 'string') return '';
+  return sanitizeHtml(userInput, {
+    allowedTags: [ 'b', 'i', 'em', 'strong', 'a', 'p', 'br' ], // Only allow safe text formatting
+    allowedAttributes: {
+      'a': [ 'href' ] // Only allow safe attributes
+    },
+    allowedIframeHostnames: [] // No iframes allowed
+  });
+};
 
 /**
  * Sends an email
@@ -77,4 +93,5 @@ module.exports = {
   sendEmail,
   sendVerificationOTP,
   sendPasswordResetOTP,
+  safeEmailContent,
 };

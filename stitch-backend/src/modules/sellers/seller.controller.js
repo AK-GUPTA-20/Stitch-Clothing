@@ -8,6 +8,9 @@ const Product         = require("../../models/Product");
 const Config          = require("../../models/Config");
 const Notification    = require("../../models/Notification");
 const { uploadToImageKit } = require("../../utils/imagekit");
+const sanitizeBody    = require("../../utils/sanitizeBody");
+const pick            = require("../../utils/pick");
+const sanitizeRegex   = require("../../utils/sanitizeRegex");
 
 /* ─────────────────────────────────────────────────────────────────────────────
    HELPERS
@@ -51,7 +54,8 @@ exports.getSellers = asyncHandler(async (req, res) => {
   };
 
   if (search) {
-    const re = new RegExp(search, "i");
+    const safeSearch = sanitizeRegex(search);
+    const re = new RegExp(safeSearch, "i");
     filter.$or = [
       { businessName   : re },
       { "store.name"   : re },
@@ -245,12 +249,12 @@ exports.registerSeller = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("You already have a seller account.", 409));
   }
 
-  req.body.userId = req.user._id;
-  if (!req.body.businessType) {
-    req.body.businessType = "individual";
-  }
+  const ALLOWED_SELLER_FIELDS = ["businessName", "businessEmail", "businessPhone", "gstNumber", "panNumber", "businessType"];
+  const safeData = pick(req.body, ALLOWED_SELLER_FIELDS);
+  safeData.userId = req.user._id;
+  if (!safeData.businessType) safeData.businessType = "individual";
 
-  const seller = await Seller.create(req.body);
+  const seller = await Seller.create(safeData);
 
   res.status(201).json({ success: true, data: seller });
 });
@@ -725,7 +729,7 @@ exports.updateWarehouse = asyncHandler(async (req, res, next) => {
   if (!warehouse) return next(new ErrorHandler("Warehouse not found.", 404));
 
   const ALLOWED = ["name", "code", "address", "contactPhone", "contactEmail", "gstNumber", "isActive", "operatingHours"];
-  ALLOWED.forEach((f) => { if (req.body[f] !== undefined) warehouse[f] = req.body[f]; });
+  Object.assign(warehouse, sanitizeBody(ALLOWED, req.body));
 
   await seller.save({ validateBeforeSave: false });
 
@@ -940,7 +944,8 @@ exports.adminGetAllSellers = asyncHandler(async (req, res) => {
   if (isActive !== undefined) filter.isActive        = isActive === "true";
 
   if (search) {
-    const re = new RegExp(search, "i");
+    const safeSearch = sanitizeRegex(search);
+    const re = new RegExp(safeSearch, "i");
     filter.$or = [
       { businessName    : re },
       { businessEmail   : re },

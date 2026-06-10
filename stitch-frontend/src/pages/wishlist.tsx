@@ -68,7 +68,7 @@ export default function WishlistPage() {
                 Tap the heart on any product to save it here for later.
               </p>
               <Link
-                href="/#shop"
+                href="/allproducts"
                 className="inline-flex items-center gap-2 bg-stone-900 text-stone-50 px-8 py-4 text-[11px] tracking-[0.2em] uppercase font-medium hover:bg-stone-800 transition-colors"
               >
                 Browse Products <ArrowRight size={14} />
@@ -117,7 +117,7 @@ export default function WishlistPage() {
 
               <div className="mt-12 pt-8 border-t border-stone-100 flex justify-center">
                 <Link
-                  href="/#shop"
+                  href="/allproducts"
                   className="inline-flex items-center gap-2 text-[11px] tracking-widest uppercase text-stone-500 border-b border-stone-300 pb-0.5 hover:text-stone-900 hover:border-stone-900 transition-colors"
                 >
                   Continue Shopping <ArrowRight size={12} />

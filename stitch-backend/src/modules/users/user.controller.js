@@ -6,8 +6,11 @@ const bcrypt = require("bcryptjs");
 
 const User = require("../../models/User");
 const Order = require("../../models/Order");
+const mongoSanitize = require("express-mongo-sanitize");
 const asyncHandler = require("../../middleware/asyncHandler");
 const ErrorHandler = require("../../middleware/error");
+const pick = require("../../utils/pick");
+const sanitizeRegex = require("../../utils/sanitizeRegex");
 const emailService = require("../../utils/emailService");
 
 
@@ -90,6 +93,9 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please provide firstName, lastName, email, and password.", 400));
   }
 
+  if (typeof email !== "string") {
+    return next(new ErrorHandler("Invalid email format.", 400));
+  }
   const existing = await User.findOne({ email: email.toLowerCase().trim() });
   if (existing) {
     return next(new ErrorHandler("Email is already registered.", 409));
@@ -497,10 +503,7 @@ exports.updateProfile = asyncHandler(async (req, res, next) => {
     "preferredLanguage", "preferredCurrency", "avatar",
   ];
 
-  const updates = {};
-  ALLOWED.forEach((field) => {
-    if (req.body[field] !== undefined) updates[field] = req.body[field];
-  });
+  const updates = pick(req.body, ALLOWED);
 
   if (Object.keys(updates).length === 0) {
     return next(new ErrorHandler("No valid fields provided for update.", 400));
@@ -538,9 +541,7 @@ exports.updateAvatar = asyncHandler(async (req, res, next) => {
 //* Update Body Measurements (/api/v1/user/me/measurements)
 exports.updateBodyMeasurements = asyncHandler(async (req, res, next) => {
   const ALLOWED = ["height", "weight", "chest", "waist", "hips", "inseam", "shoulder", "neck", "sleeve", "unit"];
-  const updates = {};
-  ALLOWED.forEach((f) => { if (req.body[f] !== undefined) updates[`bodyMeasurements.${f}`] = req.body[f]; });
-  updates["bodyMeasurements.updatedAt"] = new Date();
+  const updates = { bodyMeasurements: { ...pick(req.body, ALLOWED), updatedAt: new Date() } };
 
   const user = await User.findByIdAndUpdate(
     req.user._id,
@@ -575,7 +576,8 @@ exports.addAddress = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Maximum of 10 addresses allowed.", 400));
   }
 
-  user.addresses.push(req.body);
+  const ALLOWED_ADDRESS_FIELDS = ["street", "city", "state", "zipCode", "country", "phone", "isDefault", "label", "landmark", "addressLine2"];
+  user.addresses.push(pick(req.body, ALLOWED_ADDRESS_FIELDS));
   await user.save({ validateBeforeSave: false });
 
   res.status(201).json({ success: true, addresses: user.addresses });
@@ -596,7 +598,8 @@ exports.updateAddress = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Address not found.", 404));
   }
 
-  Object.assign(address, req.body);
+  const ALLOWED_ADDRESS_FIELDS = ["street", "city", "state", "zipCode", "country", "phone", "isDefault", "label", "landmark", "addressLine2"];
+  Object.assign(address, pick(req.body, ALLOWED_ADDRESS_FIELDS));
   await user.save({ validateBeforeSave: false });
 
   res.status(200).json({ success: true, addresses: user.addresses });
@@ -975,7 +978,8 @@ exports.adminGetAllUsers = asyncHandler(async (req, res, next) => {
   if (isSuspended) filter.isSuspended = isSuspended === "true";
 
   if (search) {
-    const regex = new RegExp(search, "i");
+    const safeSearch = sanitizeRegex(search);
+    const regex = new RegExp(safeSearch, "i");
     filter.$or  = [{ email: regex }, { firstName: regex }, { lastName: regex }, { phone: regex }];
   }
 
@@ -984,7 +988,7 @@ exports.adminGetAllUsers = asyncHandler(async (req, res, next) => {
 
   const [users, total, activeTotal, suspendedTotal] = await Promise.all([
     User.find(filter).select(SAFE_FIELDS).sort(sort).skip(skip).limit(Number(limit)),
-    User.countDocuments(filter),
+    User.countDocuments(mongoSanitize.sanitize(filter)),
     User.countDocuments({ deletedAt: null, isActive: true, isSuspended: false }),
     User.countDocuments({ deletedAt: null, isSuspended: true })
   ]);
@@ -1012,12 +1016,12 @@ exports.adminGetUser = asyncHandler(async (req, res, next) => {
 
 //* updateUser /api/v1/admin/users/:id
 exports.adminUpdateUser = asyncHandler(async (req, res, next) => {
-  const RESTRICTED = ["password", "refreshTokens", "twoFactorSecret", "otp"];
-  RESTRICTED.forEach((f) => delete req.body[f]);
+  const ALLOWED_ADMIN_FIELDS = ["firstName", "lastName", "email", "phone", "role", "isActive", "isSuspended"];
+  const updates = pick(req.body, ALLOWED_ADMIN_FIELDS);
 
   const user = await User.findByIdAndUpdate(
     req.params.id,
-    { $set: req.body },
+    { $set: updates },
     { new: true, runValidators: true }
   ).select(SAFE_FIELDS);
 
@@ -1180,6 +1184,9 @@ exports.adminAdjustLoyalty = asyncHandler(async (req, res, next) => {
 exports.verifyEmailByToken = asyncHandler(async (req, res, next) => {
   const { token } = req.params;
 
+  if (typeof token !== "string") {
+    return next(new ErrorHandler("Invalid token format.", 400));
+  }
   const user = await User.findOne({ emailVerifyToken: token });
 
   if (!user) {

@@ -24,7 +24,11 @@ const getAuthUser = async (req) => {
   const user = await User.findById(decoded.id);
 
   if (user && user.role === "seller") {
+    const mongoose = require("mongoose");
     const Seller = require("../models/Seller");
+    if (!mongoose.Types.ObjectId.isValid(user._id)) {
+      return { token: null, user: null };
+    }
     const seller = await Seller.findOne({ userId: user._id });
     if (seller) {
       user.sellerId = seller._id;

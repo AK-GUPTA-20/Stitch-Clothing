@@ -920,6 +920,15 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab]   = useState<TabId>('overview');
   const [loggingOut, setLoggingOut] = useState(false);
 
+  useEffect(() => {
+    if (router.isReady && router.query.tab) {
+      const tab = router.query.tab as TabId;
+      if (TABS.some(t => t.id === tab)) {
+        setActiveTab(tab);
+      }
+    }
+  }, [router.isReady, router.query.tab]);
+
   const handleLogout = async () => {
     setLoggingOut(true);
     try {

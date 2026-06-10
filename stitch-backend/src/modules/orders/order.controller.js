@@ -5,6 +5,8 @@ const ErrorHandler    = require("../../middleware/error");
 const Product         = require("../../models/Product");
 const Order           = require("../../models/Order");
 const Seller          = require("../../models/Seller");
+const pick            = require("../../utils/pick");
+const sanitizeRegex   = require("../../utils/sanitizeRegex");
 const User            = require("../../models/User");
 const Config          = require("../../models/Config");
 const mongoose        = require("mongoose");
@@ -40,6 +42,9 @@ function _hasLedgerEntry(entries, { type, source, referenceId, amount }) {
 
 async function _settleSellerWallet(order, session) {
   const settlementReferenceId = order._id.toString();
+  if (!mongoose.Types.ObjectId.isValid(order.sellerId)) {
+    return false;
+  }
   let seller = await Seller.findById(order.sellerId).session(session);
   if (!seller) {
     // Fallback: If order.sellerId matches User ID instead of Seller ID
@@ -167,9 +172,9 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
     const variant = product.variants.id(item.variantId);
     const sellerId = product.sellerId;
-    const unitPrice = Number(item.unitPrice ?? variant?.price ?? product.salePrice ?? product.basePrice ?? 0);
+    const unitPrice = Number(variant?.price ?? product.salePrice ?? product.basePrice ?? 0);
     const quantity = Number(item.quantity ?? 1);
-    const subtotal = Number(item.subtotal ?? unitPrice * quantity);
+    const subtotal = unitPrice * quantity;
 
     return {
       productId   : product._id,
@@ -209,7 +214,24 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Unable to determine seller for this order.", 400));
   }
 
-  const order = await Order.create(req.body);
+  let calculatedSubtotal = 0;
+  resolvedItems.forEach(item => calculatedSubtotal += item.subtotal);
+
+  const deliveryCharge = Number(req.body.pricing?.deliveryCharge || 0);
+  const taxAmount = Number(req.body.pricing?.taxAmount || 0);
+  const couponDiscount = Number(req.body.pricing?.couponDiscount || 0);
+  
+  req.body.pricing = {
+    subtotal: calculatedSubtotal,
+    deliveryCharge,
+    taxAmount,
+    couponDiscount,
+    total: calculatedSubtotal + deliveryCharge + taxAmount - couponDiscount
+  };
+
+  const ALLOWED_ORDER_FIELDS = ["items", "shippingAddress", "billingAddress", "payment", "couponCode", "notes", "userId", "placedAt", "orderId", "sellerId", "pricing"];
+  const safeData = pick(req.body, ALLOWED_ORDER_FIELDS);
+  const order = await Order.create(safeData);
 
   _pushStatusHistory(order, "placed", req.user._id, "user");
   await order.save({ validateBeforeSave: false });
@@ -455,7 +477,12 @@ exports.requestRefund = asyncHandler(async (req, res, next) => {
   if (items && items.length > 0) {
     for (const ri of items) {
       const item = order.items.id(ri.orderItemId);
-      if (item) amount += (item.unitPrice * ri.quantity);
+      if (item) {
+        if (ri.quantity > (item.quantity - (item.returnedQty || 0))) {
+          return next(new ErrorHandler("Refund quantity exceeds purchased/available quantity.", 400));
+        }
+        amount += (item.unitPrice * ri.quantity);
+      }
     }
   } else {
     amount = order.pricing.total;
@@ -782,6 +809,10 @@ exports.updateTracking = asyncHandler(async (req, res, next) => {
   const order = await Order.findById(req.params.id);
   if (!order) return next(new ErrorHandler("Order not found.", 404));
 
+  if (order.sellerId?.toString() !== req.user.sellerId?.toString() && req.user.role !== "admin") {
+    return next(new ErrorHandler("Not authorised.", 403));
+  }
+
   if (!order.tracking) order.tracking = {};
   if (courier)           order.tracking.courier           = courier;
   if (awb)               order.tracking.awb               = awb;
@@ -1003,10 +1034,11 @@ exports.getAllOrders = asyncHandler(async (req, res) => {
   if (userId)        filter.userId             = userId;
   if (sellerId)      filter.sellerId           = sellerId;
   if (search) {
+    const safeSearch = sanitizeRegex(search);
     filter.$or = [
-      { orderId        : new RegExp(search, "i") },
-      { "items.name"   : new RegExp(search, "i") },
-      { "items.sku"    : new RegExp(search, "i") },
+      { orderId        : new RegExp(safeSearch, "i") },
+      { "items.name"   : new RegExp(safeSearch, "i") },
+      { "items.sku"    : new RegExp(safeSearch, "i") },
     ];
   }
   if (from || to) {

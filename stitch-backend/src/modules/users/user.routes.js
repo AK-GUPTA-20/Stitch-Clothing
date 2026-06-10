@@ -4,6 +4,12 @@ const { isAuthenticated, isAdmin } = require("../../middleware/auth");
 
 const router = express.Router();
 
+const rateLimit = require("express-rate-limit");
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: "Too many attempts from this IP, please try again after 15 minutes." }
+});
 // =========================================================================
 // PUBLIC ROUTES
 // =========================================================================
@@ -14,12 +20,12 @@ router.post("/login", userController.loginUser);
 router.post("/refresh-token", userController.refreshAccessToken);
 
 // Email Verification
-router.post("/verify-email", userController.verifyEmail);
+router.post("/verify-email", otpLimiter, userController.verifyEmail);
 router.get("/verify-email/:token", userController.verifyEmailByToken);
 
 // Password Management (Public)
 router.post("/forgot-password", userController.forgotPassword);
-router.post("/reset-password", userController.resetPassword);
+router.post("/reset-password", otpLimiter, userController.resetPassword);
 
 
 // =========================================================================

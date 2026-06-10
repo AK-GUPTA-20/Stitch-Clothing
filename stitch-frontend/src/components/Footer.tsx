@@ -14,20 +14,20 @@ type FooterSection = Record<string, FooterLink[]>;
 
 const footerLinks: FooterSection = {
   "Shop Men": [
-    { label: "Hoodies & Sweatshirts", href: "/#shop" },
-    { label: "T-Shirts & Tops", href: "/#shop" },
-    { label: "Jackets & Coats", href: "/#shop" },
-    { label: "Trousers & Chinos", href: "/#shop" },
-    { label: "Accessories", href: "/#shop" },
-    { label: "Sale", href: "/#shop" },
+    { label: "Hoodies & Sweatshirts", href: "/allproducts" },
+    { label: "T-Shirts & Tops", href: "/allproducts" },
+    { label: "Jackets & Coats", href: "/allproducts" },
+    { label: "Trousers & Chinos", href: "/allproducts" },
+    { label: "Accessories", href: "/allproducts" },
+    { label: "Sale", href: "/allproducts" },
   ],
   "Shop Women": [
-    { label: "Dresses & Jumpsuits", href: "/#shop" },
-    { label: "Knitwear", href: "/#shop" },
-    { label: "Jackets & Coats", href: "/#shop" },
-    { label: "Jeans & Trousers", href: "/#shop" },
-    { label: "Accessories", href: "/#shop" },
-    { label: "Sale", href: "/#shop" },
+    { label: "Dresses & Jumpsuits", href: "/allproducts" },
+    { label: "Knitwear", href: "/allproducts" },
+    { label: "Jackets & Coats", href: "/allproducts" },
+    { label: "Jeans & Trousers", href: "/allproducts" },
+    { label: "Accessories", href: "/allproducts" },
+    { label: "Sale", href: "/allproducts" },
   ],
   Help: [
     { label: "Size Guide", href: "/pages/size-guide" },
@@ -50,7 +50,7 @@ const footerLinks: FooterSection = {
 const socials = [
   {
     label: "Instagram",
-    href: "#",
+    href: process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
@@ -61,7 +61,7 @@ const socials = [
   },
   {
     label: "Twitter / X",
-    href: "#",
+    href: process.env.NEXT_PUBLIC_TWITTER_URL || "#",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -70,7 +70,7 @@ const socials = [
   },
   {
     label: "Pinterest",
-    href: "#",
+    href: process.env.NEXT_PUBLIC_PINTEREST_URL || "#",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <path d="M12 2C6.477 2 2 6.477 2 12c0 4.236 2.636 7.855 6.356 9.312-.088-.791-.167-2.005.035-2.868.181-.78 1.172-4.97 1.172-4.97s-.299-.598-.299-1.482c0-1.388.806-2.428 1.808-2.428.852 0 1.266.64 1.266 1.408 0 .858-.546 2.141-.828 3.33-.236.995.499 1.806 1.476 1.806 1.772 0 3.137-1.868 3.137-4.565 0-2.387-1.715-4.055-4.163-4.055-2.833 0-4.498 2.123-4.498 4.319 0 .854.33 1.769.74 2.269a.3.3 0 0 1 .069.283c-.076.309-.243.995-.276 1.134-.044.183-.146.222-.336.134-1.249-.581-2.03-2.407-2.03-3.874 0-3.154 2.292-6.052 6.608-6.052 3.469 0 6.165 2.473 6.165 5.776 0 3.447-2.173 6.22-5.19 6.22-1.013 0-1.966-.527-2.292-1.148l-.623 2.378c-.226.869-.835 1.958-1.244 2.621.937.29 1.931.446 2.962.446 5.523 0 10-4.477 10-10S17.523 2 12 2z" />
@@ -79,7 +79,7 @@ const socials = [
   },
   {
     label: "YouTube",
-    href: "#",
+    href: process.env.NEXT_PUBLIC_YOUTUBE_URL || "#",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
         <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
@@ -88,7 +88,7 @@ const socials = [
   },
   {
     label: "TikTok",
-    href: "#",
+    href: process.env.NEXT_PUBLIC_TIKTOK_URL || "#",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.81a8.18 8.18 0 0 0 4.78 1.52V6.88a4.85 4.85 0 0 1-1.01-.19z" />
@@ -385,12 +385,12 @@ export default function Footer({ hideNewsletter = false }: { hideNewsletter?: bo
             </p>
             <div className="flex items-center gap-2">
               {[
-                { label: "App Store", sub: "Download on the" },
-                { label: "Google Play", sub: "Get it on" },
-              ].map(({ label, sub }) => (
+                { label: "App Store", sub: "Download on the", href: process.env.NEXT_PUBLIC_APP_STORE_URL || "#" },
+                { label: "Google Play", sub: "Get it on", href: process.env.NEXT_PUBLIC_PLAY_STORE_URL || "#" },
+              ].map(({ label, sub, href }) => (
                 <a
                   key={label}
-                  href="#"
+                  href={href}
                   className="flex flex-col border border-stone-300 px-3 py-1.5 hover:border-stone-500 transition-colors"
                 >
                   <span className="text-[8px] text-stone-400 tracking-wide">{sub}</span>

@@ -20,8 +20,28 @@ const app = require("./src/app");
 const connectDB = require("./src/config/db");
 const { getCorsOptions } = require("./src/config/cors");
 
-const server = http.createServer(app);
+const fs = require("fs");
+const https = require("https");
 
+let server;
+if (NODE_ENV === "production") {
+  // Enforce HTTPS in production with TLS certificates
+  // In a real environment, cert.pem and key.pem must be safely stored
+  try {
+    const privateKey = fs.readFileSync("/etc/ssl/private/key.pem", "utf8");
+    const certificate = fs.readFileSync("/etc/ssl/certs/cert.pem", "utf8");
+    const credentials = { key: privateKey, cert: certificate };
+    server = https.createServer(credentials, app);
+    console.log("🔒 HTTPS Server initialized for Production");
+  } catch (err) {
+    console.error("Failed to load TLS certificates. Falling back to HTTP.", err.message);
+    server = http.createServer(app);
+  }
+} else {
+  // Local development uses plain HTTP
+  server = http.createServer(app);
+  console.log("🔓 HTTP Server initialized for Development");
+}
 // GRACEFUL SHUTDOWN 
 
 const gracefulShutdown = async (signal) => {

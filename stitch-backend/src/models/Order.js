@@ -213,7 +213,7 @@ trackingSchema.virtual("awbNumber").get(function () {
 
 const orderSchema = new Schema(
   {
-    orderId           : { type: String, unique: true, uppercase: true, default: () => `ORD-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}` },
+    orderId           : { type: String, unique: true, uppercase: true, default: () => `ORD-${new Date().getFullYear()}-${require('crypto').randomBytes(4).toString('hex').toUpperCase()}` },
     userId            : { type: Schema.Types.ObjectId, ref: "User", required: true },
     sellerId          : { type: Schema.Types.ObjectId, ref: "Seller" },
     checkoutSessionId : { type: String },
@@ -301,7 +301,7 @@ orderSchema.virtual("invoiceNumber").get(function () {
 orderSchema.pre("save", function () {
   if (this.isNew && !this.orderId) {
     const year = new Date().getFullYear();
-    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const rand = require('crypto').randomBytes(4).toString('hex').toUpperCase();
     this.orderId = `ORD-${year}-${rand}`;
   }
 });

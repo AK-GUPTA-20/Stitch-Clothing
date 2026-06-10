@@ -9,14 +9,47 @@ const path = require("path");
 
 const app = express();
 
+app.disable("x-powered-by");
+
 app.use(cors(getCorsOptions()));
 app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://ik.imagekit.io"],
+      connectSrc: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: false,
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: "deny" },
+  hidePoweredBy: true,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  ieNoOpen: true,
+  noSniff: true,
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  xssFilter: true,
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Sanitize data against NoSQL query injection
+const mongoSanitize = require("express-mongo-sanitize");
+app.use((req, res, next) => {
+  mongoSanitize.sanitize(req.body);
+  mongoSanitize.sanitize(req.params);
+  mongoSanitize.sanitize(req.query);
+  next();
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
