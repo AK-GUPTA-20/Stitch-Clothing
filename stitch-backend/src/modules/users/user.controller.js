@@ -64,7 +64,7 @@ const sendTokenResponse = async (user, statusCode, res, refreshToken = null) => 
   const cookieOptions = {
     httpOnly : true,
     secure   : process.env.NODE_ENV === "production",
-    sameSite : "strict",
+    sameSite : process.env.NODE_ENV === "production" ? "none" : "lax",
     expires  : new Date(Date.now() + 15 * 60 * 1000), // 15 min
   };
 
@@ -282,7 +282,7 @@ exports.refreshAccessToken = asyncHandler(async (req, res, next) => {
   res.cookie("token", newAccessToken, {
     httpOnly : true,
     secure   : process.env.NODE_ENV === "production",
-    sameSite : "strict",
+    sameSite : process.env.NODE_ENV === "production" ? "none" : "lax",
     expires  : new Date(Date.now() + 15 * 60 * 1000),
   });
 
