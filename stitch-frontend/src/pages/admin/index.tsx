@@ -356,7 +356,7 @@ export default function AdminPage() {
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600 shrink-0">
                               {u.avatar
-                                ? <img src={u.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                                ? <img loading="lazy" decoding="async" src={u.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                                 : `${(u.name || u.firstName || '')[0] ?? ''}${(u.lastName || u.name?.split(' ')?.[1] || '')[0] ?? ''}`
                               }
                             </div>

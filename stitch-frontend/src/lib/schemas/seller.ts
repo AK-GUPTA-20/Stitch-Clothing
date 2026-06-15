@@ -21,7 +21,7 @@ export const addressSchema = z.object({
 
 export const businessInfoSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters').max(150, 'Max 150 characters'),
-  legalEntityName: z.string().min(2, 'Legal entity name must be at least 2 characters').max(150),
+  legalEntityName: z.string().max(150).optional().or(z.literal('')),
   taxId: z.string().min(1, 'Tax ID / GST is required').max(20),
   phone: z.string().regex(phoneRegex, 'Enter a valid 10-digit Indian mobile number'),
   address: addressSchema,

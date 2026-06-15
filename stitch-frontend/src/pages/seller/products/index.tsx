@@ -403,7 +403,7 @@ export default function PortalProductsIndex() {
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
                               {img ? (
-                                <img
+                                <img loading="lazy" decoding="async"
                                   src={img}
                                   alt={p.name}
                                   className="h-11 w-9 object-cover rounded-lg border border-stone-200/60 shrink-0 bg-stone-100"
@@ -517,7 +517,7 @@ export default function PortalProductsIndex() {
                               </Link>
 
                               <Link
-                                href={`/product/${p._id}`}
+                                href={`/product/${p.slug || p._id}`}
                                 target="_blank"
                                 title="View on Storefront"
                                 className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"

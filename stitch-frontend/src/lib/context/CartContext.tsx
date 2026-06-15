@@ -9,6 +9,7 @@ export interface CartItem {
   size: string;
   color: string;
   quantity: number;
+  slug?: string;
 }
 
 // use shared label helpers from src/lib/utils.ts

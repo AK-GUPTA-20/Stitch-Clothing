@@ -11,8 +11,7 @@ import React, {
 import { productService } from '../api/productService';
 import { getCategoryLabel } from '@/lib/utils';
 import { Product, GetProductsParams } from '../types/product.types';
-// Local static fallback — used when the API is unreachable (dev / offline)
-import { products as staticProducts } from '../data/products';
+// Local static fallback removed
 
 // ─── Normalise ────────────────────────────────────────────────────────────────
 
@@ -63,22 +62,6 @@ function normalise(p: Product): Product {
   };
 }
 
-function normaliseStatic(p: any): Product {
-  return {
-    ...p,
-    _id: p.id,
-    status: 'approved' as const,
-    images: (p.images || [p.image]).map((url: string, i: number) => ({
-      _id: `static-${i}`,
-      url,
-      isPrimary: i === 0,
-      order: i,
-    })),
-    variants: [],
-    rating: p.rating ?? 0,
-    reviewCount: p.reviewCount ?? 0,
-  };
-}
 
 // ─── Context shape ────────────────────────────────────────────────────────────
 
@@ -138,14 +121,12 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       lastListRef.current = normalised;
       lastTotalRef.current = res.pagination?.total ?? res.total ?? normalised.length;
     } catch (err: any) {
-      // Fall back to static data
-      const fallback = staticProducts.map(normaliseStatic);
-      setProducts(fallback);
-      setTotal(fallback.length);
+      setError('Failed to load products');
+      setProducts([]);
+      setTotal(0);
       setIsOffline(true);
-      lastListRef.current = fallback;
-      lastTotalRef.current = fallback.length;
-      setError(null); // Don't surface offline as hard error on listing pages
+      lastListRef.current = [];
+      lastTotalRef.current = 0;
     } finally {
       setLoading(false);
     }
@@ -158,8 +139,8 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       const res = await productService.getFeaturedProducts();
       setFeatured((res.data || res.products || []).map(normalise));
     } catch {
-      // Fallback: use first 4 static items
-      setFeatured(staticProducts.slice(0, 4).map(normaliseStatic));
+      // Fallback removed, just empty out or show error
+      setFeatured([]);
     } finally {
       setFeaturedLoading(false);
     }
@@ -176,18 +157,10 @@ export function ProductProvider({ children }: { children: ReactNode }) {
       setTotal(res.pagination?.total ?? res.total ?? normalised.length);
       setIsOffline(false);
     } catch {
-      // Offline: client-side filter of last known list
-      const lower = q.toLowerCase();
-      const filtered = lastListRef.current.filter((p) => {
-        const catName = getCategoryLabel(p.category) || '';
-        return (
-          p.name.toLowerCase().includes(lower) ||
-          catName.toLowerCase().includes(lower) ||
-          (p.description || '').toLowerCase().includes(lower)
-        );
-      });
-      setProducts(filtered);
-      setTotal(filtered.length);
+      // Offline: handle error
+      setError('Search failed. Please check your connection.');
+      setProducts([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }

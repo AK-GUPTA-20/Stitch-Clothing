@@ -330,7 +330,7 @@ export default function OrderDetailPage() {
                       <div key={item._id} className="px-5 py-4 flex items-start gap-4">
                         <div className="w-16 h-20 bg-stone-50 rounded-xl overflow-hidden border border-stone-100 shrink-0">
                           {item.productImage ? (
-                            <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={item.productImage} alt={item.productName} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Package size={20} className="text-stone-200" />

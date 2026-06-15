@@ -39,7 +39,7 @@ export default function PublicSellerProfile({ slug }: { slug: string }) {
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-white shadow-sm border border-stone-200 flex items-center justify-center overflow-hidden shrink-0">
             {store.logo ? (
-              <img src={store.logo} alt={store.name} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={store.logo} alt={store.name} className="w-full h-full object-cover" />
             ) : (
               <Store className="w-6 h-6 text-stone-400" />
             )}

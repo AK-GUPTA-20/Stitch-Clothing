@@ -72,7 +72,7 @@ export default function StorePage() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mb-16">
           <div className="relative rounded-3xl overflow-hidden bg-stone-100 min-h-[280px] md:min-h-[360px] flex items-center justify-center">
             {store.coverUrl ? (
-              <img src={store.coverUrl} alt="Store Banner" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+              <img loading="lazy" decoding="async" src={store.coverUrl} alt="Store Banner" className="absolute inset-0 w-full h-full object-cover opacity-90" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-100" />
             )}
@@ -81,7 +81,7 @@ export default function StorePage() {
             <div className="relative z-10 flex flex-col items-center text-center px-4 mt-8 md:mt-16">
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white shadow-xl bg-white flex items-center justify-center overflow-hidden mb-4">
                 {store.logoUrl ? (
-                  <img src={store.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={store.logoUrl} alt="Logo" className="w-full h-full object-cover" />
                 ) : (
                   <Store className="w-10 h-10 text-stone-300" />
                 )}

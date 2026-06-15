@@ -143,7 +143,7 @@ export default function ContentPages() {
                   </Link>
                 )}
                 {page.toUrl && <p className="text-xs text-stone-500 font-mono mt-2 truncate">→ {page.toUrl}</p>}
-                {page.bannerUrl && <img src={page.bannerUrl} alt="banner" className="h-16 w-full object-cover rounded-lg mt-3" />}
+                {page.bannerUrl && <img loading="lazy" decoding="async" src={page.bannerUrl} alt="banner" className="h-16 w-full object-cover rounded-lg mt-3" />}
               </div>
               <div className="mt-4 pt-4 border-t border-stone-100 flex justify-between items-center text-[10px] text-stone-400">
                 <span>Updated: {new Date(page.updatedAt).toLocaleDateString()}</span>

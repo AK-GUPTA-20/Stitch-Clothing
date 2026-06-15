@@ -53,7 +53,7 @@ export default function LookbookPage() {
           className="absolute inset-0 z-0 opacity-40"
           style={{ y: useTransform(scrollYProgress, [0, 1], ["0%", "50%"]) }}
         >
-          <img 
+          <img loading="lazy" decoding="async" 
             src="https://images.unsplash.com/photo-1618244972963-dbee1a7edc95?w=1800&q=85" 
             alt="Lookbook Intro" 
             className="w-full h-full object-cover"
@@ -132,7 +132,7 @@ function ShotSection({ shot, index }: { shot: any, index: number }) {
   return (
     <div ref={ref} className="min-h-[90vh] md:min-h-screen relative flex items-center justify-center overflow-hidden mb-10 md:mb-0">
       <motion.div style={{ y, scale }} className="absolute inset-0 z-0">
-        <img 
+        <img loading="lazy" decoding="async" 
           src={shot.img} 
           alt={shot.title} 
           className="w-full h-full object-cover opacity-80"

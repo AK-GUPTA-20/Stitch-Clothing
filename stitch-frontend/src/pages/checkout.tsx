@@ -8,10 +8,18 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/lib/context/CartContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
-import { getColorLabel, getSizeLabel, getValidImages, getValidImage } from "@/lib/utils";
+import {
+  getColorLabel,
+  getSizeLabel,
+  getValidImages,
+  getValidImage,
+  formatCurrency,
+} from "@/lib/utils";
 import { orderService } from "@/lib/api/orderService";
 import { productService } from "@/lib/api/productService";
 import { Address } from "@/lib/types/user.types";
+import { apiClient } from "@/lib/api/apiClient";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight,
   Lock,
@@ -27,6 +35,14 @@ import {
   MapPin,
   CreditCard,
   Package,
+  Smartphone,
+  Building2,
+  Banknote,
+  Star,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { useConfig } from "@/lib/context/ConfigContext";
 import { z } from "zod";
@@ -43,31 +59,33 @@ const steps: { key: Step; label: string }[] = [
   { key: "payment", label: "Payment" },
 ];
 
+// INR prices
 const shippingOptions = [
   {
     id: "standard",
     label: "Standard Shipping",
     sub: "5–7 business days",
     price: 0,
-    threshold: 120,
-    icon: <Truck size={14} />,
+    threshold: 999,
+    icon: <Truck size={15} />,
   },
   {
     id: "express",
     label: "Express Shipping",
     sub: "2–3 business days",
-    price: 12,
-    icon: <Package size={14} />,
+    price: 99,
+    icon: <Package size={15} />,
   },
   {
     id: "overnight",
     label: "Overnight Shipping",
     sub: "Next business day",
-    price: 28,
-    icon: <Clock size={14} />,
+    price: 199,
+    icon: <Clock size={15} />,
   },
 ];
 
+type OnlineSubMethod = "upi" | "card" | "netbanking";
 type CheckoutPaymentMode = "online" | "offline";
 
 type PreparedCartLine = {
@@ -158,7 +176,8 @@ function getDigits(value: string) {
 function getProductImage(product: any, variant: any, fallback?: string) {
   if (variant?.images?.length) {
     const variantImg = variant.images[0];
-    if (typeof variantImg === 'string' && !variantImg.includes('localhost')) return variantImg;
+    if (typeof variantImg === "string" && !variantImg.includes("localhost"))
+      return variantImg;
   }
   return getValidImages(product, fallback)[0] || "";
 }
@@ -180,22 +199,6 @@ function getSelectedVariant(
 }
 
 /* ─────────────────────────────────────────────
-   Coupon helpers (mock – swap with real API)
-───────────────────────────────────────────── */
-
-const MOCK_COUPONS: Record<string, { type: "pct" | "flat"; value: number }> = {
-  SAVE10: { type: "pct", value: 10 },
-  FLAT20: { type: "flat", value: 20 },
-};
-
-function applyCoupon(code: string, subtotal: number): number {
-  const c = MOCK_COUPONS[code.toUpperCase()];
-  if (!c) return 0;
-  if (c.type === "pct") return (subtotal * c.value) / 100;
-  return Math.min(c.value, subtotal);
-}
-
-/* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
 
@@ -208,7 +211,20 @@ export default function CheckoutPage() {
 
   const [step, setStep] = useState<Step>("information");
   const [paymentMode, setPaymentMode] = useState<CheckoutPaymentMode>("online");
+  const [onlineSubMethod, setOnlineSubMethod] =
+    useState<OnlineSubMethod>("upi");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Redirect to login if user is not authenticated
+  const { isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.error("Login Required", "Please login to proceed with checkout.");
+      router.push("/login?redirect=/checkout");
+    }
+  }, [user, authLoading, router, toast]);
+
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [placedOrders, setPlacedOrders] = useState<
     Array<{ _id: string; orderId: string; sellerId: string; total: number }>
   >([]);
@@ -229,7 +245,7 @@ export default function CheckoutPage() {
   const [addressInitialized, setAddressInitialized] = useState(false);
 
   const FREE_SHIPPING_THRESHOLD =
-    settings?.shipping?.freeShippingAbove || 120;
+    settings?.shipping?.freeShippingAbove || 999;
   const COD_CHARGE = settings?.shipping?.codCharge || 0;
   const COD_ENABLED = settings?.payment?.codEnabled ?? true;
 
@@ -250,7 +266,7 @@ export default function CheckoutPage() {
     address: "",
     apartment: "",
     city: "",
-    country: "United States",
+    country: "India",
     state: "",
     zip: "",
     phone: "",
@@ -364,17 +380,34 @@ export default function CheckoutPage() {
     if (!couponInput.trim()) return;
     setCouponLoading(true);
     setCouponError("");
-    await new Promise((r) => setTimeout(r, 500)); // simulate network
-    const discount = applyCoupon(couponInput, total);
-    if (discount > 0) {
-      setAppliedCoupon(couponInput.toUpperCase());
-      setCouponDiscount(discount);
-      setCouponInput("");
-      toast.success("Coupon applied", `You saved $${discount.toFixed(2)}!`);
-    } else {
-      setCouponError("Invalid or expired coupon code.");
+    try {
+      const res = await apiClient.get<{ success: boolean; data: any[] }>(
+        "/api/v1/promotions"
+      );
+      const promotions = res.data || (res as any).promotions || [];
+      const valid = promotions.find(
+        (p: any) => p.code === couponInput.toUpperCase()
+      );
+
+      if (valid && valid.isActive !== false) {
+        let discount = 0;
+        if (valid.discountType === "percentage") {
+          discount = (total * valid.discountValue) / 100;
+        } else {
+          discount = Math.min(valid.discountValue, total);
+        }
+        setAppliedCoupon(couponInput.toUpperCase());
+        setCouponDiscount(discount);
+        setCouponInput("");
+        toast.success("Coupon applied", `You saved ${formatCurrency(discount)}!`);
+      } else {
+        setCouponError("Invalid or expired coupon code.");
+      }
+    } catch (err: any) {
+      setCouponError(err.message || "Failed to validate coupon");
+    } finally {
+      setCouponLoading(false);
     }
-    setCouponLoading(false);
   };
 
   const handleRemoveCoupon = () => {
@@ -393,7 +426,7 @@ export default function CheckoutPage() {
       city: form.city,
       state: form.state,
       postalCode: form.zip,
-      country: form.country || "United States",
+      country: form.country || "India",
       label: "Shipping address",
     }),
     [
@@ -498,6 +531,7 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     setErrors({});
+    setCheckoutError(null);
 
     try {
       const ordersToPlace = await buildPreparedOrders();
@@ -536,16 +570,16 @@ export default function CheckoutPage() {
             deliveryCharge: draft.deliveryCharge,
             discount: couponDiscount,
             total: draft.total,
-            currency: user.preferredCurrency || "INR",
+            currency: "INR",
           },
           payment: {
             method: paymentMode === "online" ? "razorpay" : "cod",
             status: "pending",
             amount: draft.total,
-            currency: user.preferredCurrency || "INR",
+            currency: "INR",
           },
           coupon: appliedCoupon || undefined,
-          notes: `Checkout placed via ${paymentMode} payment`,
+          notes: `Checkout placed via ${paymentMode} payment${paymentMode === "online" ? ` (${onlineSubMethod})` : ""}`,
         };
 
         const response: any = await orderService.createOrder(payload as any);
@@ -579,6 +613,10 @@ export default function CheckoutPage() {
           : "Cash on delivery order created successfully."
       );
     } catch (error: any) {
+      setCheckoutError(
+        error?.message ||
+          "We could not place your order right now. Please try another payment method."
+      );
       toast.error(
         "Checkout failed",
         error?.message || "We could not place your order right now."
@@ -591,6 +629,7 @@ export default function CheckoutPage() {
     buildPreparedOrders,
     clear,
     couponDiscount,
+    onlineSubMethod,
     paymentMode,
     router,
     toast,
@@ -626,132 +665,334 @@ export default function CheckoutPage() {
   ───────────────────────────────────────── */
   if (step === "confirmation") {
     return (
-      <div className="min-h-screen flex flex-col bg-stone-50">
-        <main className="flex-1 flex items-center justify-center pt-24 pb-16 px-6">
-          <div className="max-w-md w-full text-center animate-fade-in-up">
-            {/* Success icon */}
-            <div className="relative mx-auto mb-6 h-20 w-20">
-              <div className="absolute inset-0 rounded-full bg-stone-900 opacity-10 animate-ping-slow" />
-              <div className="relative h-20 w-20 rounded-full bg-stone-900 flex items-center justify-center">
-                <Check size={32} strokeWidth={1.5} className="text-stone-50" />
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-50 via-white to-stone-50">
+        <main className="flex-1 flex items-center justify-center pt-20 pb-16 px-4">
+          <div className="max-w-lg w-full">
+            {/* Success card */}
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="bg-white rounded-3xl border border-stone-100 shadow-2xl shadow-stone-900/5 overflow-hidden"
+            >
+              {/* Header gradient */}
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-8 py-10 text-center relative overflow-hidden">
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-4 left-8 w-24 h-24 rounded-full bg-white/20" />
+                  <div className="absolute bottom-4 right-8 w-16 h-16 rounded-full bg-white/20" />
+                </div>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20,
+                    delay: 0.2,
+                  }}
+                  className="relative mx-auto mb-5 h-20 w-20 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  <motion.svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <motion.path
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
+                      d="M20 6L9 17l-5-5"
+                    />
+                  </motion.svg>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  <p className="text-emerald-100 text-[10px] tracking-[0.3em] uppercase mb-1">
+                    Order Confirmed
+                  </p>
+                  <h1 className="text-white font-display text-3xl font-light italic">
+                    Thank you!
+                  </h1>
+                  <p className="text-emerald-100 text-sm mt-2">
+                    Your order{placedOrders.length > 1 ? "s have" : " has"} been
+                    placed successfully.
+                  </p>
+                </motion.div>
               </div>
-            </div>
 
-            <p className="text-[10px] tracking-[0.3em] uppercase text-stone-400 mb-2">
-              Order Confirmed
-            </p>
-            <h1 className="font-display text-4xl text-stone-900 font-light italic mb-3">
-              Thank you!
-            </h1>
-            <p className="text-sm text-stone-500 mb-1">
-              Your order{placedOrders.length > 1 ? "s have" : " has"} been
-              placed successfully.
-            </p>
-            <p className="text-xs text-stone-400 mb-4">
-              A confirmation email will be sent to{" "}
-              <span className="text-stone-600">{form.email}</span>
-            </p>
+              <div className="p-6 space-y-4">
+                {/* Confirmation detail */}
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="text-xs text-stone-500 text-center"
+                >
+                  A confirmation email will be sent to{" "}
+                  <span className="font-medium text-stone-800">{form.email}</span>
+                </motion.p>
 
-
-            {/* Order summary */}
-            <div className="border border-stone-100 p-6 text-left mb-6">
-              <p className="text-[10px] tracking-widest uppercase text-stone-400 mb-4">
-                Order Summary
-              </p>
-              <div className="space-y-1.5 text-xs text-stone-600">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <span>
-                    {shippingCost === 0
-                      ? "Free"
-                      : `$${shippingCost.toFixed(2)}`}
-                  </span>
-                </div>
-                {couponDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount ({appliedCoupon})</span>
-                    <span>-${couponDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-medium text-stone-900 border-t border-stone-100 pt-2 mt-2">
-                  <span>Total</span>
-                  <span>${orderTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Created orders */}
-            {placedOrders.length > 0 && (
-              <div className="border border-stone-100 p-6 text-left mb-8">
-                <p className="text-[10px] tracking-widest uppercase text-stone-400 mb-4">
-                  Created Orders
-                </p>
-                <div className="space-y-3">
-                  {placedOrders.map((order) => (
-                    <div
-                      key={order._id}
-                      className="flex items-center justify-between gap-3 text-xs text-stone-600"
+                {/* Delivery mode badge */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
+                    paymentMode === "offline"
+                      ? "bg-amber-50 border border-amber-100"
+                      : "bg-blue-50 border border-blue-100"
+                  }`}
+                >
+                  {paymentMode === "offline" ? (
+                    <Banknote size={18} className="text-amber-500 shrink-0" />
+                  ) : (
+                    <CreditCard size={18} className="text-blue-500 shrink-0" />
+                  )}
+                  <div>
+                    <p
+                      className={`text-xs font-semibold ${
+                        paymentMode === "offline"
+                          ? "text-amber-700"
+                          : "text-blue-700"
+                      }`}
                     >
-                      <div>
-                        <p className="font-medium text-stone-900">
-                          {order.orderId}
-                        </p>
-                        {order.sellerId && (
-                          <p className="text-[10px] text-stone-400">
-                            Seller {order.sellerId.slice(-6).toUpperCase()}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-medium text-stone-900">
-                        ₹{order.total.toFixed(2)}
+                      {paymentMode === "offline"
+                        ? "Cash on Delivery"
+                        : "Online Payment"}
+                    </p>
+                    <p
+                      className={`text-[10px] ${
+                        paymentMode === "offline"
+                          ? "text-amber-600"
+                          : "text-blue-600"
+                      }`}
+                    >
+                      {paymentMode === "offline"
+                        ? "Pay when your order arrives"
+                        : "Complete payment via the order details page"}
+                    </p>
+                  </div>
+                </motion.div>
+
+                {/* Order summary */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="border border-stone-100 rounded-2xl overflow-hidden"
+                >
+                  <div className="px-4 py-3 bg-stone-50 border-b border-stone-100">
+                    <p className="text-[10px] tracking-widest uppercase text-stone-500 font-semibold">
+                      Order Summary
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-2 text-xs text-stone-600">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>{formatCurrency(total)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Shipping</span>
+                      <span className={shippingCost === 0 ? "text-emerald-600 font-medium" : ""}>
+                        {shippingCost === 0 ? "Free" : formatCurrency(shippingCost)}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                    {couponDiscount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Discount ({appliedCoupon})</span>
+                        <span>−{formatCurrency(couponDiscount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold text-stone-900 border-t border-stone-100 pt-3 mt-3 text-sm">
+                      <span>Total Paid</span>
+                      <span>{formatCurrency(orderTotal)}</span>
+                    </div>
+                  </div>
+                </motion.div>
 
-            {/* Shipping address recap */}
-            <div className="border border-stone-100 p-5 text-left mb-8 flex gap-3">
-              <MapPin size={13} className="text-stone-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] tracking-widest uppercase text-stone-400 mb-1">
-                  Ships to
-                </p>
-                <p className="text-xs text-stone-600">
-                  {form.firstName} {form.lastName}
-                </p>
-                <p className="text-[11px] text-stone-400">
-                  {form.address}
-                  {form.apartment ? `, ${form.apartment}` : ""}, {form.city},{" "}
-                  {form.state} {form.zip}
-                </p>
-              </div>
-            </div>
+                {/* Created orders */}
+                {placedOrders.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.75 }}
+                    className="border border-stone-100 rounded-2xl overflow-hidden"
+                  >
+                    <div className="px-4 py-3 bg-stone-50 border-b border-stone-100">
+                      <p className="text-[10px] tracking-widest uppercase text-stone-500 font-semibold">
+                        Created Orders
+                      </p>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {placedOrders.map((order) => (
+                        <div
+                          key={order._id}
+                          className="flex items-center justify-between gap-3 text-xs text-stone-600"
+                        >
+                          <div>
+                            <p className="font-semibold text-stone-900 font-mono">
+                              #{order.orderId}
+                            </p>
+                            {order.sellerId && (
+                              <p className="text-[10px] text-stone-400">
+                                Seller {order.sellerId.slice(-6).toUpperCase()}
+                              </p>
+                            )}
+                          </div>
+                          <span className="font-semibold text-stone-900">
+                            {formatCurrency(order.total)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
 
-            <div className="space-y-3">
-              <Link
-                href="/"
-                className="block w-full py-4 bg-stone-900 text-stone-50 text-[11px] tracking-[0.2em] uppercase font-medium hover:bg-stone-800 transition-colors text-center"
-              >
-                Continue Shopping
-              </Link>
-              <Link
-                href={
-                  placedOrders[0]?._id
-                    ? `/orders/${placedOrders[0]._id}`
-                    : "/orders"
-                }
-                className="block w-full py-3 border border-stone-200 text-stone-600 text-[11px] tracking-[0.2em] uppercase font-medium hover:border-stone-900 transition-colors text-center"
-              >
-                View Order Details
-              </Link>
-            </div>
+                {/* Shipping address recap */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                  className="border border-stone-100 rounded-2xl p-4 flex gap-3"
+                >
+                  <MapPin
+                    size={14}
+                    className="text-stone-400 shrink-0 mt-0.5"
+                  />
+                  <div>
+                    <p className="text-[10px] tracking-widest uppercase text-stone-400 mb-1">
+                      Ships to
+                    </p>
+                    <p className="text-xs font-medium text-stone-800">
+                      {form.firstName} {form.lastName}
+                    </p>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      {form.address}
+                      {form.apartment ? `, ${form.apartment}` : ""}, {form.city},{" "}
+                      {form.state} {form.zip}
+                    </p>
+                  </div>
+                </motion.div>
+
+                {/* CTA buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.85 }}
+                  className="space-y-3 pt-2"
+                >
+                  <Link
+                    href={
+                      placedOrders[0]?._id
+                        ? `/orders/${placedOrders[0]._id}`
+                        : "/orders"
+                    }
+                    className="flex items-center justify-center gap-2 w-full py-3.5 bg-stone-900 text-stone-50 text-xs tracking-[0.2em] uppercase font-semibold hover:bg-stone-800 rounded-2xl transition-colors"
+                  >
+                    <Package size={14} /> View Order Details
+                  </Link>
+                  <Link
+                    href="/"
+                    className="flex items-center justify-center w-full py-3 border border-stone-200 text-stone-600 text-xs tracking-[0.2em] uppercase font-medium hover:border-stone-900 hover:text-stone-900 rounded-2xl transition-colors"
+                  >
+                    Continue Shopping
+                  </Link>
+                </motion.div>
+              </div>
+            </motion.div>
           </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────
+     Failure screen
+  ───────────────────────────────────────── */
+  if (checkoutError) {
+    return (
+      <div className="min-h-screen flex flex-col bg-stone-50">
+        <main className="flex-1 flex items-center justify-center pt-20 pb-16 px-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="max-w-md w-full bg-white rounded-3xl border border-stone-100 shadow-2xl shadow-stone-900/5 overflow-hidden"
+          >
+            {/* Error header */}
+            <div className="bg-gradient-to-br from-red-500 to-rose-600 px-8 py-10 text-center relative overflow-hidden">
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-4 left-8 w-24 h-24 rounded-full bg-white/20" />
+                <div className="absolute bottom-4 right-8 w-16 h-16 rounded-full bg-white/20" />
+              </div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.2, 1] }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="relative mx-auto mb-5 h-20 w-20 bg-white/20 rounded-full flex items-center justify-center"
+              >
+                <X size={36} className="text-white" strokeWidth={2} />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <p className="text-red-100 text-[10px] tracking-[0.3em] uppercase mb-1">
+                  Order Failed
+                </p>
+                <h1 className="text-white font-display text-2xl font-light">
+                  We couldn't process your order
+                </h1>
+              </motion.div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Error message */}
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex gap-3">
+                <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{checkoutError}</p>
+              </div>
+
+              {/* Tips */}
+              <div className="space-y-2">
+                {[
+                  "Check your internet connection",
+                  "Ensure your cart items are still in stock",
+                  "Try a different payment method",
+                ].map((tip, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-stone-500">
+                    <div className="h-1.5 w-1.5 rounded-full bg-stone-300 shrink-0" />
+                    {tip}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={() => setCheckoutError(null)}
+                  className="flex items-center justify-center gap-2 w-full py-3.5 bg-stone-900 text-stone-50 text-xs tracking-[0.2em] uppercase font-semibold hover:bg-stone-800 rounded-2xl transition-colors"
+                >
+                  <RefreshCw size={13} /> Try Again
+                </button>
+                <Link
+                  href="/cart"
+                  className="flex items-center justify-center w-full py-3 border border-stone-200 text-stone-600 text-xs tracking-[0.2em] uppercase font-medium hover:border-stone-900 hover:text-stone-900 rounded-2xl transition-colors"
+                >
+                  Return to Cart
+                </Link>
+              </div>
+            </div>
+          </motion.div>
         </main>
         <Footer />
       </div>
@@ -764,7 +1005,7 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen flex flex-col bg-stone-50">
       <main className="flex-1 pb-16 pt-[calc(var(--h-main-nav)+1rem)]">
-        <div className="max-w-300 mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Logo & title */}
           <div className="text-center py-8 border-b border-stone-100 mb-8">
             <Link
@@ -782,51 +1023,65 @@ export default function CheckoutPage() {
           <div className="lg:hidden mb-6">
             <button
               onClick={() => setSummaryOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-stone-100 text-xs font-medium text-stone-700"
+              className="w-full flex items-center justify-between px-4 py-3.5 bg-white border border-stone-200 rounded-2xl text-xs font-medium text-stone-700 shadow-sm"
               aria-expanded={summaryOpen}
             >
               <span className="flex items-center gap-2">
-                <Package size={13} /> Order summary ({items.length} item
+                <Package size={13} className="text-stone-500" />
+                Order summary ({items.length} item
                 {items.length !== 1 ? "s" : ""})
               </span>
               <span className="flex items-center gap-2">
-                <span className="font-semibold text-stone-900">
-                  ₹{orderTotal.toFixed(2)}
+                <span className="font-bold text-stone-900">
+                  {formatCurrency(orderTotal)}
                 </span>
-                <ChevronRight
+                <ChevronDown
                   size={13}
-                  className={`transition-transform ${summaryOpen ? "rotate-90" : ""}`}
+                  className={`transition-transform ${summaryOpen ? "rotate-180" : ""}`}
                 />
               </span>
             </button>
-            {summaryOpen && (
-              <div className="border border-stone-100 border-t-0 bg-white px-4 pb-4 pt-2">
-                <MobileOrderSummary
-                  items={items}
-                  total={total}
-                  shippingCost={shippingCost}
-                  isFreeShipping={isFreeShipping}
-                  couponDiscount={couponDiscount}
-                  appliedCoupon={appliedCoupon}
-                  orderTotal={orderTotal}
-                  couponInput={couponInput}
-                  couponError={couponError}
-                  couponLoading={couponLoading}
-                  setCouponInput={setCouponInput}
-                  handleApplyCoupon={handleApplyCoupon}
-                  handleRemoveCoupon={handleRemoveCoupon}
-                  freeShippingPct={freeShippingPct}
-                  amountToFreeShipping={amountToFreeShipping}
-                />
-              </div>
-            )}
+            <AnimatePresence>
+              {summaryOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="overflow-hidden"
+                >
+                  <div className="border border-stone-200 border-t-0 bg-white rounded-b-2xl px-4 pb-4 pt-3">
+                    <MobileOrderSummary
+                      items={items}
+                      total={total}
+                      shippingCost={shippingCost}
+                      isFreeShipping={isFreeShipping}
+                      couponDiscount={couponDiscount}
+                      appliedCoupon={appliedCoupon}
+                      orderTotal={orderTotal}
+                      couponInput={couponInput}
+                      couponError={couponError}
+                      couponLoading={couponLoading}
+                      setCouponInput={setCouponInput}
+                      handleApplyCoupon={handleApplyCoupon}
+                      handleRemoveCoupon={handleRemoveCoupon}
+                      freeShippingPct={freeShippingPct}
+                      amountToFreeShipping={amountToFreeShipping}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-10">
             {/* ── Left: multi-step form ── */}
             <div>
               {/* Step progress */}
-              <nav aria-label="Checkout steps" className="flex items-center gap-2 mb-8">
+              <nav
+                aria-label="Checkout steps"
+                className="flex items-center gap-2 mb-8"
+              >
                 {steps.map((s, i) => {
                   const stepIndex = steps.findIndex((x) => x.key === step);
                   const done = i < stepIndex;
@@ -834,15 +1089,19 @@ export default function CheckoutPage() {
                   return (
                     <React.Fragment key={s.key}>
                       <div className="flex items-center gap-2">
-                        <div
-                          className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-medium transition-all duration-300 ${
+                        <motion.div
+                          animate={{
+                            backgroundColor:
+                              done || active ? "#1c1917" : "#e7e5e4",
+                          }}
+                          className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold transition-all duration-300 ${
                             done || active
-                              ? "bg-stone-900 text-stone-50"
-                              : "bg-stone-200 text-stone-500"
+                              ? "text-stone-50"
+                              : "text-stone-500"
                           }`}
                         >
-                          {done ? <Check size={10} /> : i + 1}
-                        </div>
+                          {done ? <Check size={11} /> : i + 1}
+                        </motion.div>
                         <span
                           className={`text-[10px] tracking-widest uppercase font-medium transition-colors ${
                             active ? "text-stone-900" : "text-stone-400"
@@ -853,104 +1112,114 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                       {i < steps.length - 1 && (
-                        <ChevronRight
-                          size={12}
-                          className="text-stone-300 mx-1"
-                        />
+                        <ChevronRight size={12} className="text-stone-300 mx-1" />
                       )}
                     </React.Fragment>
                   );
                 })}
               </nav>
 
-              {/* ── Information step ── */}
-              {step === "information" && (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Contact */}
-                  <section aria-labelledby="contact-heading">
-                    <p
-                      id="contact-heading"
-                      className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium mb-4"
+              <AnimatePresence mode="wait">
+                {/* ── Information step ── */}
+                {step === "information" && (
+                  <motion.div
+                    key="information"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-6"
+                  >
+                    {/* Contact */}
+                    <section
+                      className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4"
+                      aria-labelledby="contact-heading"
                     >
-                      Contact
-                    </p>
-                    <Field
-                      label="Email address"
-                      value={form.email}
-                      error={errors.email}
-                      type="email"
-                      placeholder="you@example.com"
-                      readOnly
-                      icon={<Lock size={14} className="text-stone-400" />}
-                    />
-                    <label className="flex items-center gap-2.5 mt-3 cursor-pointer group">
-                      <Checkbox
-                        checked={form.newsletter}
-                        onChange={() => set("newsletter", !form.newsletter)}
+                      <p
+                        id="contact-heading"
+                        className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-semibold"
+                      >
+                        Contact
+                      </p>
+                      <Field
+                        label="Email address"
+                        value={form.email}
+                        error={errors.email}
+                        type="email"
+                        placeholder="you@example.com"
+                        readOnly
+                        icon={<Lock size={14} className="text-stone-400" />}
                       />
-                      <span className="text-[11px] text-stone-500">
-                        Keep me updated with news and offers
-                      </span>
-                    </label>
-                  </section>
+                      <label className="flex items-center gap-2.5 cursor-pointer group">
+                        <Checkbox
+                          checked={form.newsletter}
+                          onChange={() => set("newsletter", !form.newsletter)}
+                        />
+                        <span className="text-[11px] text-stone-500">
+                          Keep me updated with news and offers
+                        </span>
+                      </label>
+                    </section>
 
-                  {/* Address */}
-                  <section aria-labelledby="address-heading">
-                    <p
-                      id="address-heading"
-                      className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium mb-4"
+                    {/* Address */}
+                    <section
+                      className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4"
+                      aria-labelledby="address-heading"
                     >
-                      Shipping Address
-                    </p>
+                      <p
+                        id="address-heading"
+                        className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-semibold"
+                      >
+                        Shipping Address
+                      </p>
 
-                    {/* Saved address selector */}
-                    {user?.addresses?.length ? (
-                      <div className="mb-3">
-                        <label className="block text-[10px] tracking-[0.18em] uppercase text-stone-500 font-medium mb-2">
-                          Saved address
-                        </label>
-                        <select
-                          value={savedAddressId}
-                          aria-label="Saved address"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setSavedAddressId(value);
-                            if (value === "manual") return;
-                            const found = user.addresses?.find(
-                              (a) => a._id === value
-                            );
-                            if (found) applyAddress(found);
-                          }}
-                          className="w-full px-3 py-2 text-xs border border-stone-200 bg-transparent focus:outline-none focus:border-stone-500 transition-colors"
-                        >
-                          <option value="manual">Enter a new address</option>
-                          {user.addresses.map((a) => (
-                            <option key={a._id} value={a._id}>
-                              {a.recipientName || a.type || "Saved address"} –{" "}
-                              {formatSavedAddress(a)}
-                            </option>
-                          ))}
-                        </select>
+                      {/* Saved address selector */}
+                      {user?.addresses?.length ? (
+                        <div>
+                          <label className="block text-[10px] tracking-[0.18em] uppercase text-stone-500 font-medium mb-2">
+                            Saved address
+                          </label>
+                          <select
+                            value={savedAddressId}
+                            aria-label="Saved address"
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setSavedAddressId(value);
+                              if (value === "manual") return;
+                              const found = user.addresses?.find(
+                                (a) => a._id === value
+                              );
+                              if (found) applyAddress(found);
+                            }}
+                            className="w-full px-3 py-2.5 text-xs border border-stone-200 bg-white rounded-xl focus:outline-none focus:border-stone-500 transition-colors"
+                          >
+                            <option value="manual">Enter a new address</option>
+                            {user.addresses.map((a) => (
+                              <option key={a._id} value={a._id}>
+                                {a.recipientName || a.type || "Saved address"} –{" "}
+                                {formatSavedAddress(a)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field
+                          label="First name"
+                          value={form.firstName}
+                          onChange={(v) => set("firstName", v)}
+                          error={errors.firstName}
+                          autoComplete="given-name"
+                        />
+                        <Field
+                          label="Last name"
+                          value={form.lastName}
+                          onChange={(v) => set("lastName", v)}
+                          error={errors.lastName}
+                          autoComplete="family-name"
+                        />
                       </div>
-                    ) : null}
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field
-                        label="First name"
-                        value={form.firstName}
-                        onChange={(v) => set("firstName", v)}
-                        error={errors.firstName}
-                        autoComplete="given-name"
-                      />
-                      <Field
-                        label="Last name"
-                        value={form.lastName}
-                        onChange={(v) => set("lastName", v)}
-                        error={errors.lastName}
-                        autoComplete="family-name"
-                      />
-                    </div>
-                    <div className="mt-3">
                       <Field
                         label="Address"
                         value={form.address}
@@ -959,39 +1228,35 @@ export default function CheckoutPage() {
                         placeholder="Street address"
                         autoComplete="street-address"
                       />
-                    </div>
-                    <div className="mt-3">
                       <Field
                         label="Apartment, suite, etc. (optional)"
                         value={form.apartment}
                         onChange={(v) => set("apartment", v)}
                         autoComplete="address-line2"
                       />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mt-3">
-                      <Field
-                        label="City"
-                        value={form.city}
-                        onChange={(v) => set("city", v)}
-                        error={errors.city}
-                        autoComplete="address-level2"
-                      />
-                      <Field
-                        label="State"
-                        value={form.state}
-                        onChange={(v) => set("state", v)}
-                        autoComplete="address-level1"
-                      />
-                      <Field
-                        label="ZIP code"
-                        value={form.zip}
-                        onChange={(v) => set("zip", v)}
-                        error={errors.zip}
-                        autoComplete="postal-code"
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div className="mt-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        <Field
+                          label="City"
+                          value={form.city}
+                          onChange={(v) => set("city", v)}
+                          error={errors.city}
+                          autoComplete="address-level2"
+                        />
+                        <Field
+                          label="State"
+                          value={form.state}
+                          onChange={(v) => set("state", v)}
+                          autoComplete="address-level1"
+                        />
+                        <Field
+                          label="PIN code"
+                          value={form.zip}
+                          onChange={(v) => set("zip", v)}
+                          error={errors.zip}
+                          autoComplete="postal-code"
+                          inputMode="numeric"
+                        />
+                      </div>
                       <Field
                         label="Phone"
                         value={form.phone}
@@ -999,187 +1264,376 @@ export default function CheckoutPage() {
                         type="tel"
                         inputMode="numeric"
                         error={errors.phone}
-                        placeholder="10 digit phone number"
+                        placeholder="10 digit mobile number"
                         autoComplete="tel"
                       />
-                    </div>
 
-                    {/* Save info toggle */}
-                    <label className="flex items-center gap-2.5 mt-4 cursor-pointer group">
-                      <Checkbox
-                        checked={form.saveInfo}
-                        onChange={() => set("saveInfo", !form.saveInfo)}
-                      />
-                      <span className="text-[11px] text-stone-500">
-                        Save this information for next time
-                      </span>
-                    </label>
-                  </section>
-                </div>
-              )}
-
-              {/* ── Shipping step ── */}
-              {step === "shipping" && (
-                <div className="animate-fade-in">
-                  <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium mb-4">
-                    Shipping Method
-                  </p>
-
-                  {/* Free-shipping progress */}
-                  {total < FREE_SHIPPING_THRESHOLD && (
-                    <div className="mb-5 p-4 border border-stone-100 bg-white rounded-sm">
-                      <div className="flex justify-between text-[10px] text-stone-500 mb-2">
-                        <span>
-                          Add{" "}
-                          <span className="font-medium text-stone-700">
-                            ₹{amountToFreeShipping.toFixed(2)}
-                          </span>{" "}
-                          more for free standard shipping
-                        </span>
-                        <span>{Math.round(freeShippingPct)}%</span>
-                      </div>
-                      <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-stone-900 rounded-full transition-all duration-500"
-                          style={{ width: `${freeShippingPct}%` }}
+                      {/* Save info toggle */}
+                      <label className="flex items-center gap-2.5 cursor-pointer group pt-1">
+                        <Checkbox
+                          checked={form.saveInfo}
+                          onChange={() => set("saveInfo", !form.saveInfo)}
                         />
+                        <span className="text-[11px] text-stone-500">
+                          Save this information for next time
+                        </span>
+                      </label>
+                    </section>
+                  </motion.div>
+                )}
+
+                {/* ── Shipping step ── */}
+                {step === "shipping" && (
+                  <motion.div
+                    key="shipping"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-5"
+                  >
+                    {/* Free-shipping progress */}
+                    {total < FREE_SHIPPING_THRESHOLD && (
+                      <div className="bg-white border border-stone-200 rounded-2xl p-5">
+                        <div className="flex justify-between text-[11px] text-stone-500 mb-3">
+                          <span>
+                            Add{" "}
+                            <span className="font-semibold text-stone-800">
+                              {formatCurrency(amountToFreeShipping)}
+                            </span>{" "}
+                            more for free standard shipping
+                          </span>
+                          <span className="font-semibold">
+                            {Math.round(freeShippingPct)}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-stone-100 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${freeShippingPct}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                            className="h-full bg-gradient-to-r from-stone-700 to-stone-900 rounded-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {shippingOptions.map((opt) => {
+                        const free =
+                          opt.id === "standard" &&
+                          total >= FREE_SHIPPING_THRESHOLD;
+                        const selected = shipping === opt.id;
+                        return (
+                          <motion.label
+                            key={opt.id}
+                            whileHover={{ scale: selected ? 1 : 1.005 }}
+                            whileTap={{ scale: 0.99 }}
+                            className={`flex items-center justify-between p-4 border-2 rounded-2xl cursor-pointer transition-all duration-200 ${
+                              selected
+                                ? "border-stone-900 bg-stone-50 shadow-sm"
+                                : "border-stone-200 bg-white hover:border-stone-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <RadioDot
+                                checked={selected}
+                                onChange={() => setShipping(opt.id)}
+                              />
+                              <span
+                                className={`${selected ? "text-stone-700" : "text-stone-400"}`}
+                              >
+                                {opt.icon}
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold text-stone-900">
+                                  {opt.label}
+                                </p>
+                                <p className="text-[11px] text-stone-400 mt-0.5">
+                                  {opt.sub}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-sm font-semibold text-stone-900 shrink-0">
+                              {free || opt.price === 0 ? (
+                                <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full text-xs">
+                                  Free
+                                </span>
+                              ) : (
+                                formatCurrency(opt.price)
+                              )}
+                            </p>
+                          </motion.label>
+                        );
+                      })}
+                    </div>
+
+                    {/* Estimated delivery note */}
+                    {shipping && (
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-[11px] text-stone-400 flex items-center gap-1.5 px-1"
+                      >
+                        <Truck size={11} />
+                        Estimated delivery:{" "}
+                        {selectedShipping.sub.replace(
+                          "business days",
+                          "business days from today"
+                        )}
+                      </motion.p>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ── Payment step ── */}
+                {step === "payment" && (
+                  <motion.div
+                    key="payment"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-5"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-semibold">
+                        Payment Method
+                      </p>
+                      <div className="flex items-center gap-1.5 text-stone-400">
+                        <ShieldCheck size={12} />
+                        <span className="text-[10px]">256-bit SSL Secured</span>
                       </div>
                     </div>
-                  )}
 
-                  <div className="space-y-2">
-                    {shippingOptions.map((opt) => {
-                      const free =
-                        opt.id === "standard" &&
-                        total >= FREE_SHIPPING_THRESHOLD;
-                      const selected = shipping === opt.id;
-                      return (
-                        <label
-                          key={opt.id}
-                          className={`flex items-center justify-between p-4 border cursor-pointer transition-all duration-150 ${
-                            selected
-                              ? "border-stone-900 bg-stone-50"
-                              : "border-stone-200 hover:border-stone-400"
+                    {/* Payment mode cards */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <PaymentMethodCard
+                        selected={paymentMode === "online"}
+                        onClick={() => setPaymentMode("online")}
+                        icon={<CreditCard size={18} />}
+                        badge="Instant"
+                        badgeColor="blue"
+                        title="Online Payment"
+                        description="Pay securely via UPI, Cards or Net Banking"
+                        features={["Instant confirmation", "100% secure", "All major banks"]}
+                      />
+                      {COD_ENABLED && (
+                        <PaymentMethodCard
+                          selected={paymentMode === "offline"}
+                          onClick={() => setPaymentMode("offline")}
+                          icon={<Banknote size={18} />}
+                          badge="COD"
+                          badgeColor="amber"
+                          title="Cash on Delivery"
+                          description={`Pay in cash when your order arrives${
+                            COD_CHARGE > 0
+                              ? ` (${formatCurrency(COD_CHARGE)} extra fee applies)`
+                              : ""
                           }`}
+                          features={["No advance payment", "Pay on delivery", "Easy returns"]}
+                        />
+                      )}
+                    </div>
+
+                    {/* Online sub-method selector */}
+                    <AnimatePresence>
+                      {paymentMode === "online" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
                         >
-                          <div className="flex items-center gap-3">
-                            <RadioDot
-                              checked={selected}
-                              onChange={() => setShipping(opt.id)}
-                            />
-                            <span
-                              className="text-stone-400"
-                              aria-hidden="true"
-                            >
-                              {opt.icon}
-                            </span>
-                            <div>
-                              <p className="text-xs font-medium text-stone-900">
-                                {opt.label}
-                              </p>
-                              <p className="text-[11px] text-stone-400">
-                                {opt.sub}
+                          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4">
+                            <p className="text-[10px] tracking-[0.2em] uppercase text-stone-400 font-semibold">
+                              Choose online payment method
+                            </p>
+                            <div className="grid grid-cols-3 gap-3">
+                              <OnlineMethodPill
+                                active={onlineSubMethod === "upi"}
+                                onClick={() => setOnlineSubMethod("upi")}
+                                icon={<Smartphone size={16} />}
+                                label="UPI"
+                                sublabel="GPay, PhonePe"
+                              />
+                              <OnlineMethodPill
+                                active={onlineSubMethod === "card"}
+                                onClick={() => setOnlineSubMethod("card")}
+                                icon={<CreditCard size={16} />}
+                                label="Card"
+                                sublabel="Debit / Credit"
+                              />
+                              <OnlineMethodPill
+                                active={onlineSubMethod === "netbanking"}
+                                onClick={() => setOnlineSubMethod("netbanking")}
+                                icon={<Building2 size={16} />}
+                                label="Net Banking"
+                                sublabel="All major banks"
+                              />
+                            </div>
+
+                            {/* Dynamic sub-method info */}
+                            <AnimatePresence mode="wait">
+                              <motion.div
+                                key={onlineSubMethod}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -5 }}
+                                transition={{ duration: 0.2 }}
+                                className="bg-blue-50 border border-blue-100 rounded-xl p-4"
+                              >
+                                {onlineSubMethod === "upi" && (
+                                  <div className="flex gap-3 items-start">
+                                    <Smartphone size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="text-xs font-semibold text-blue-800">UPI Payment</p>
+                                      <p className="text-[11px] text-blue-600 mt-1">
+                                        Pay instantly using Google Pay, PhonePe, Paytm, or any UPI-enabled app. Order confirms within seconds.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                                {onlineSubMethod === "card" && (
+                                  <div className="flex gap-3 items-start">
+                                    <CreditCard size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="text-xs font-semibold text-blue-800">Debit / Credit Card</p>
+                                      <p className="text-[11px] text-blue-600 mt-1">
+                                        All Visa, Mastercard, Rupay, and AmEx cards accepted. Your card data is encrypted and never stored.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                                {onlineSubMethod === "netbanking" && (
+                                  <div className="flex gap-3 items-start">
+                                    <Building2 size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                                    <div>
+                                      <p className="text-xs font-semibold text-blue-800">Net Banking</p>
+                                      <p className="text-[11px] text-blue-600 mt-1">
+                                        Pay directly from your bank account. Supports all major banks including SBI, HDFC, ICICI, Axis and more.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                              </motion.div>
+                            </AnimatePresence>
+
+                            {/* Security badges */}
+                            <div className="flex items-center gap-4 pt-1 flex-wrap">
+                              <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+                                <Lock size={10} className="text-emerald-500" />
+                                <span>SSL Encrypted</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+                                <ShieldCheck size={10} className="text-emerald-500" />
+                                <span>PCI DSS Compliant</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+                                <CheckCircle2 size={10} className="text-emerald-500" />
+                                <span>RBI Approved</span>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* COD info panel */}
+                    <AnimatePresence>
+                      {paymentMode === "offline" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="bg-white border border-stone-200 rounded-2xl p-5 space-y-4">
+                            <p className="text-[10px] tracking-[0.2em] uppercase text-stone-400 font-semibold">
+                              How Cash on Delivery Works
+                            </p>
+                            <div className="space-y-3">
+                              {[
+                                {
+                                  icon: <Package size={14} className="text-amber-500" />,
+                                  title: "Order is confirmed",
+                                  desc: "Your order is placed and dispatched to our logistics partner.",
+                                },
+                                {
+                                  icon: <Truck size={14} className="text-amber-500" />,
+                                  title: "Delivery to your door",
+                                  desc: "Our delivery partner brings the package to your address.",
+                                },
+                                {
+                                  icon: <Banknote size={14} className="text-amber-500" />,
+                                  title: "Pay at the door",
+                                  desc: `Pay ₹ in cash (or UPI) when you receive the package.${COD_CHARGE > 0 ? ` A COD fee of ${formatCurrency(COD_CHARGE)} is included in your total.` : ""}`,
+                                },
+                              ].map((step, i) => (
+                                <div key={i} className="flex gap-3">
+                                  <div className="h-8 w-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                                    {step.icon}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-stone-800">{step.title}</p>
+                                    <p className="text-[11px] text-stone-500 mt-0.5">{step.desc}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Trust badges */}
+                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 flex items-center gap-2">
+                              <ShieldCheck size={14} className="text-amber-500 shrink-0" />
+                              <p className="text-[11px] text-amber-700">
+                                COD orders are fully insured. Easy returns within 7 days of delivery.
                               </p>
                             </div>
                           </div>
-                          <p className="text-xs font-medium text-stone-900">
-                            {free || opt.price === 0 ? (
-                              <span className="text-green-600">Free</span>
-                            ) : (
-                              `₹${opt.price.toFixed(2)}`
-                            )}
-                          </p>
-                        </label>
-                      );
-                    })}
-                  </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                  {/* Estimated delivery note */}
-                  {shipping && (
-                    <p className="mt-4 text-[11px] text-stone-400 flex items-center gap-1.5">
-                      <Truck size={11} />
-                      Estimated delivery:{" "}
-                      {selectedShipping.sub.replace("business days", "business days from now")}
-                    </p>
-                  )}
-                </div>
-              )}
+                    {/* Recap cards */}
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {/* Contact recap */}
+                      <div className="bg-white border border-stone-200 rounded-2xl p-4">
+                        <p className="text-[10px] tracking-[0.2em] uppercase text-stone-400 font-semibold mb-2.5">
+                          Contact on order
+                        </p>
+                        <p className="text-xs text-stone-700 font-medium">{form.email}</p>
+                        <p className="text-xs text-stone-500 mt-1">
+                          +91 {getDigits(form.phone)}
+                        </p>
+                      </div>
 
-              {/* ── Payment step ── */}
-              {step === "payment" && (
-                <div className="space-y-4 animate-fade-in">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium">
-                      Payment Details
-                    </p>
-                    <div className="flex items-center gap-1.5 text-stone-400">
-                      <ShieldCheck size={11} />
-                      <span className="text-[10px]">256-bit SSL Secured</span>
+                      {/* Shipping recap */}
+                      <div className="bg-white border border-stone-200 rounded-2xl p-4">
+                        <p className="text-[10px] tracking-[0.2em] uppercase text-stone-400 font-semibold mb-2.5">
+                          Ships to
+                        </p>
+                        <p className="text-xs text-stone-700 font-medium">
+                          {form.firstName} {form.lastName}
+                        </p>
+                        <p className="text-xs text-stone-500 mt-1 truncate">
+                          {form.address}
+                          {form.apartment ? `, ${form.apartment}` : ""},{" "}
+                          {form.city}, {form.state} {form.zip}
+                        </p>
+                        <button
+                          onClick={() => setStep("information")}
+                          className="mt-2 text-[10px] text-stone-400 underline underline-offset-2 hover:text-stone-700 transition-colors"
+                        >
+                          Edit address
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <PaymentMethodCard
-                      selected={paymentMode === "online"}
-                      onClick={() => setPaymentMode("online")}
-                      icon={<CreditCard size={15} />}
-                      title="Online Payment"
-                      description="Create the order and complete payment through the online gateway flow."
-                    />
-                    {COD_ENABLED && (
-                      <PaymentMethodCard
-                        selected={paymentMode === "offline"}
-                        onClick={() => setPaymentMode("offline")}
-                        icon={<Wallet size={15} />}
-                        title="Cash on Delivery"
-                        description={`Pay with cash when your order is delivered.${
-                          COD_CHARGE > 0
-                            ? ` A COD fee of ₹${COD_CHARGE.toFixed(2)} applies.`
-                            : ""
-                        }`}
-                      />
-                    )}
-                  </div>
-
-                  {/* Info banner */}
-                  <div className="border border-stone-100 bg-stone-50 p-4 text-[11px] text-stone-500 leading-relaxed">
-                    {paymentMode === "online"
-                      ? "An online order will be created now. You can complete the payment flow from the order details page once the gateway step is connected."
-                      : "The order will be placed as cash on delivery and will appear in your order history and the seller dashboard immediately."}
-                  </div>
-
-
-
-                  {/* Contact recap */}
-                  <div className="rounded-xl border border-stone-100 bg-white p-4">
-                    <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium mb-3">
-                      Contact on order
-                    </p>
-                    <p className="text-xs text-stone-600">{form.email}</p>
-                    <p className="text-xs text-stone-600 mt-1">
-                      {getDigits(form.phone)}
-                    </p>
-                  </div>
-
-                  {/* Shipping recap */}
-                  <div className="rounded-xl border border-stone-100 bg-white p-4">
-                    <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium mb-3">
-                      Ships to
-                    </p>
-                    <p className="text-xs text-stone-600">
-                      {form.address}
-                      {form.apartment ? `, ${form.apartment}` : ""},{" "}
-                      {form.city}, {form.state} {form.zip}
-                    </p>
-                    <button
-                      onClick={() => setStep("information")}
-                      className="mt-2 text-[10px] text-stone-400 underline underline-offset-2 hover:text-stone-700 transition-colors"
-                    >
-                      Edit address
-                    </button>
-                  </div>
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* ── Navigation buttons ── */}
               <div className="flex items-center justify-between mt-8 pt-6 border-t border-stone-100">
@@ -1200,37 +1654,52 @@ export default function CheckoutPage() {
                     <ArrowLeft size={13} /> Back
                   </button>
                 )}
-                <button
+                <motion.button
+                  whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleContinue}
                   disabled={isSubmitting}
                   aria-busy={isSubmitting}
-                  className="flex items-center gap-2 px-8 py-3.5 bg-stone-900 text-stone-50 text-[11px] tracking-[0.2em] uppercase font-medium hover:bg-stone-800 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center gap-2 px-8 py-3.5 bg-stone-900 text-stone-50 text-[11px] tracking-[0.2em] uppercase font-semibold hover:bg-stone-800 disabled:opacity-80 disabled:cursor-not-allowed transition-all shadow-lg shadow-stone-900/10 rounded-xl relative overflow-hidden min-w-[180px] justify-center"
                 >
-                  {step === "payment" ? (
-                    isSubmitting ? (
+                  {/* Loading overlay */}
+                  <AnimatePresence>
+                    {isSubmitting && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-stone-800 flex items-center justify-center gap-2 rounded-xl"
+                      >
+                        <RefreshCw size={13} className="animate-spin" />
+                        <span>Processing...</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div
+                    className={`flex items-center gap-2 ${isSubmitting ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}
+                  >
+                    {step === "payment" ? (
                       <>
-                        <RefreshCw size={12} className="animate-spin" />{" "}
-                        Placing order…
+                        <Lock size={12} />
+                        Place Order · {formatCurrency(orderTotal)}
                       </>
                     ) : (
                       <>
-                        <Lock size={12} /> Place order ₹{orderTotal.toFixed(2)}
+                        Continue <ChevronRight size={13} />
                       </>
-                    )
-                  ) : (
-                    <>
-                      Continue <ChevronRight size={13} />
-                    </>
-                  )}
-                </button>
+                    )}
+                  </div>
+                </motion.button>
               </div>
             </div>
 
             {/* ── Right: sticky order summary (desktop) ── */}
             <div className="hidden lg:block lg:sticky self-start top-[calc(var(--h-main-nav)+1rem)]">
-              <div className="border border-stone-100 bg-stone-50">
-                <div className="px-6 py-4 border-b border-stone-100">
-                  <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-medium">
+              <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/60">
+                  <p className="text-[10px] tracking-[0.2em] uppercase text-stone-500 font-semibold">
                     Order Summary
                   </p>
                 </div>
@@ -1243,7 +1712,7 @@ export default function CheckoutPage() {
                       className="flex gap-3"
                     >
                       <div className="relative shrink-0">
-                        <div className="h-16 w-12 bg-stone-100 overflow-hidden">
+                        <div className="h-16 w-12 bg-stone-100 rounded-xl overflow-hidden">
                           <img
                             src={getValidImage(item.image)}
                             alt={item.name}
@@ -1251,7 +1720,7 @@ export default function CheckoutPage() {
                             loading="lazy"
                           />
                         </div>
-                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-stone-500 text-stone-50 text-[9px] font-medium flex items-center justify-center">
+                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-stone-600 text-stone-50 text-[9px] font-medium flex items-center justify-center">
                           {item.quantity}
                         </span>
                       </div>
@@ -1264,8 +1733,8 @@ export default function CheckoutPage() {
                           {getColorLabel(item.color)}
                         </p>
                       </div>
-                      <p className="text-xs font-medium text-stone-900 shrink-0">
-                        ${(item.price * item.quantity).toFixed(2)}
+                      <p className="text-xs font-semibold text-stone-900 shrink-0">
+                        {formatCurrency(item.price * item.quantity)}
                       </p>
                     </div>
                   ))}
@@ -1274,14 +1743,14 @@ export default function CheckoutPage() {
                 {/* Coupon */}
                 <div className="px-6 py-4 border-t border-stone-100">
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-[11px] font-medium">
+                    <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-[11px] font-medium">
                       <span className="flex items-center gap-1.5">
                         <Tag size={11} /> {appliedCoupon} applied
                       </span>
                       <button
                         onClick={handleRemoveCoupon}
                         aria-label="Remove coupon"
-                        className="text-green-500 hover:text-green-800 transition-colors"
+                        className="text-emerald-500 hover:text-emerald-800 transition-colors"
                       >
                         <X size={13} />
                       </button>
@@ -1301,12 +1770,12 @@ export default function CheckoutPage() {
                           }
                           placeholder="Discount code"
                           aria-label="Discount code"
-                          className="flex-1 px-3 py-2 text-xs border border-stone-200 bg-transparent placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
+                          className="flex-1 px-3 py-2 text-xs border border-stone-200 bg-transparent rounded-xl placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
                         />
                         <button
                           onClick={handleApplyCoupon}
                           disabled={couponLoading || !couponInput.trim()}
-                          className="px-4 py-2 border border-stone-200 text-[10px] tracking-widest uppercase text-stone-600 hover:border-stone-900 hover:text-stone-900 disabled:opacity-50 transition-colors"
+                          className="px-4 py-2 border border-stone-200 text-[10px] tracking-widest uppercase text-stone-600 hover:border-stone-900 hover:text-stone-900 disabled:opacity-50 transition-colors rounded-xl"
                         >
                           {couponLoading ? (
                             <RefreshCw size={11} className="animate-spin" />
@@ -1325,52 +1794,66 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Totals */}
-                <div className="px-6 py-4 border-t border-stone-100 space-y-2">
+                <div className="px-6 py-4 border-t border-stone-100 space-y-2.5">
                   <div className="flex justify-between text-xs text-stone-600">
                     <span>Subtotal</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span className="font-medium">{formatCurrency(total)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-stone-600">
                     <span>Shipping</span>
                     <span
-                      className={isFreeShipping ? "text-green-600" : ""}
+                      className={
+                        isFreeShipping
+                          ? "text-emerald-600 font-medium"
+                          : "font-medium"
+                      }
                     >
                       {isFreeShipping
                         ? "Free"
                         : shippingCost === 0
                         ? "Calculated at next step"
-                        : `$${shippingCost.toFixed(2)}`}
+                        : formatCurrency(shippingCost)}
                     </span>
                   </div>
-                  {couponDiscount > 0 && (
-                    <div className="flex justify-between text-xs text-green-600">
-                      <span>Discount ({appliedCoupon})</span>
-                      <span>-${couponDiscount.toFixed(2)}</span>
+                  {paymentMode === "offline" && COD_CHARGE > 0 && (
+                    <div className="flex justify-between text-xs text-stone-600">
+                      <span>COD Fee</span>
+                      <span className="font-medium">{formatCurrency(COD_CHARGE)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm font-medium text-stone-900 border-t border-stone-100 pt-3 mt-3">
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-xs text-emerald-600">
+                      <span>Discount ({appliedCoupon})</span>
+                      <span className="font-medium">−{formatCurrency(couponDiscount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm font-bold text-stone-900 border-t border-stone-100 pt-3 mt-3">
                     <span>Total</span>
-                    <span>${orderTotal.toFixed(2)}</span>
+                    <div className="text-right">
+                      <span>{formatCurrency(orderTotal)}</span>
+                      <p className="text-[10px] font-normal text-stone-400">
+                        Incl. taxes
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Free-shipping progress (desktop) */}
-                {shipping === "standard" &&
-                  total < FREE_SHIPPING_THRESHOLD && (
-                    <div className="px-6 pb-4">
-                      <div className="text-[10px] text-stone-400 mb-1.5">
-                        $
-                        {amountToFreeShipping.toFixed(2)} away from free
-                        shipping
-                      </div>
-                      <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-stone-700 rounded-full transition-all duration-500"
-                          style={{ width: `${freeShippingPct}%` }}
-                        />
-                      </div>
+                {shipping === "standard" && total < FREE_SHIPPING_THRESHOLD && (
+                  <div className="px-6 pb-4">
+                    <div className="text-[10px] text-stone-400 mb-1.5">
+                      {formatCurrency(amountToFreeShipping)} away from free shipping
                     </div>
-                  )}
+                    <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${freeShippingPct}%` }}
+                        transition={{ duration: 0.8 }}
+                        className="h-full bg-gradient-to-r from-stone-600 to-stone-900 rounded-full"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Trust badges */}
                 <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-center gap-4 flex-wrap">
@@ -1420,18 +1903,29 @@ function Checkbox({
   onChange: () => void;
 }) {
   return (
-    <div
+    <motion.div
       role="checkbox"
       aria-checked={checked}
       onClick={onChange}
-      className={`h-4 w-4 border flex items-center justify-center transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 ${
+      whileTap={{ scale: 0.9 }}
+      className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-all shrink-0 cursor-pointer focus:outline-none ${
         checked
           ? "bg-stone-900 border-stone-900"
-          : "border-stone-300 hover:border-stone-600"
+          : "border-stone-300 hover:border-stone-600 bg-white"
       }`}
     >
-      {checked && <Check size={10} className="text-stone-50" />}
-    </div>
+      <AnimatePresence>
+        {checked && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0 }}
+          >
+            <Check size={10} className="text-stone-50" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -1443,61 +1937,213 @@ function RadioDot({
   onChange?: () => void;
 }) {
   return (
-    <div
+    <motion.div
       role="radio"
       aria-checked={checked}
       onClick={onChange}
-      className={`h-4 w-4 rounded-full border-2 flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 ${
+      className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors focus:outline-none cursor-pointer shrink-0 ${
         checked ? "border-stone-900" : "border-stone-300"
       }`}
     >
-      {checked && (
-        <div className="h-2 w-2 rounded-full bg-stone-900" />
-      )}
-    </div>
+      <AnimatePresence>
+        {checked && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0 }}
+            className="h-2.5 w-2.5 rounded-full bg-stone-900"
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
+/* ── Redesigned Payment Method Card ── */
 function PaymentMethodCard({
   selected,
   onClick,
   icon,
+  badge,
+  badgeColor,
   title,
   description,
+  features,
 }: {
   selected: boolean;
   onClick: () => void;
   icon: React.ReactNode;
+  badge: string;
+  badgeColor: "blue" | "amber";
   title: string;
   description: string;
+  features: string[];
 }) {
+  const isBlue = badgeColor === "blue";
+
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
-      className={`border px-4 py-4 text-left transition-all duration-150 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 ${
+      whileHover={{ scale: selected ? 1 : 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={`relative w-full overflow-hidden rounded-2xl border-2 p-5 text-left transition-all duration-300 focus:outline-none ${
         selected
-          ? "border-stone-900 bg-stone-50"
-          : "border-stone-200 hover:border-stone-400"
+          ? isBlue
+            ? "border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-50"
+            : "border-amber-500 shadow-lg shadow-amber-500/10 bg-amber-50"
+          : "border-stone-200 bg-white hover:border-stone-300 hover:shadow-md"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <span
-            className={`mt-0.5 ${
-              selected ? "text-stone-900" : "text-stone-400"
+      {/* Selection indicator glow */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 ${
+              isBlue ? "bg-blue-400" : "bg-amber-400"
+            }`}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 0.2 }}
+            exit={{ scale: 0, opacity: 0 }}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="relative z-10">
+        {/* Top row: icon + badge + check */}
+        <div className="flex items-start justify-between mb-3">
+          <div
+            className={`h-10 w-10 rounded-xl flex items-center justify-center transition-colors duration-300 ${
+              selected
+                ? isBlue
+                  ? "bg-blue-500 text-white"
+                  : "bg-amber-500 text-white"
+                : "bg-stone-100 text-stone-500"
             }`}
           >
             {icon}
-          </span>
-          <div>
-            <p className="text-xs font-medium text-stone-900">{title}</p>
-            <p className="text-[11px] text-stone-400 mt-1">{description}</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded-full ${
+                selected
+                  ? isBlue
+                    ? "bg-blue-500 text-white"
+                    : "bg-amber-500 text-white"
+                  : isBlue
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-amber-100 text-amber-600"
+              }`}
+            >
+              {badge}
+            </span>
+
+            {/* Animated check */}
+            <div
+              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                selected
+                  ? isBlue
+                    ? "border-blue-500 bg-blue-500"
+                    : "border-amber-500 bg-amber-500"
+                  : "border-stone-200 bg-white"
+              }`}
+            >
+              <AnimatePresence>
+                {selected && (
+                  <motion.svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <motion.path
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.3, delay: 0.1 }}
+                      d="M20 6L9 17l-5-5"
+                    />
+                  </motion.svg>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
-        <RadioDot checked={selected} onChange={onClick} />
+
+        {/* Title & description */}
+        <p className="text-sm font-bold text-stone-900">{title}</p>
+        <p className="text-[11px] text-stone-500 mt-1 leading-relaxed">
+          {description}
+        </p>
+
+        {/* Feature list */}
+        <div className="mt-3 space-y-1.5">
+          {features.map((feat, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div
+                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                  selected
+                    ? isBlue
+                      ? "bg-blue-400"
+                      : "bg-amber-400"
+                    : "bg-stone-300"
+                }`}
+              />
+              <span className="text-[11px] text-stone-500">{feat}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    </button>
+    </motion.button>
+  );
+}
+
+/* ── Online method pill ── */
+function OnlineMethodPill({
+  active,
+  onClick,
+  icon,
+  label,
+  sublabel,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  sublabel: string;
+}) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ scale: active ? 1 : 1.03 }}
+      whileTap={{ scale: 0.97 }}
+      className={`relative overflow-hidden rounded-xl border-2 p-3 text-center transition-all duration-200 w-full focus:outline-none ${
+        active
+          ? "border-blue-500 bg-blue-50 shadow-sm"
+          : "border-stone-200 bg-white hover:border-stone-300"
+      }`}
+    >
+      <div
+        className={`mx-auto mb-2 h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${
+          active ? "bg-blue-500 text-white" : "bg-stone-100 text-stone-500"
+        }`}
+      >
+        {icon}
+      </div>
+      <p className={`text-xs font-semibold ${active ? "text-blue-700" : "text-stone-700"}`}>
+        {label}
+      </p>
+      <p className="text-[10px] text-stone-400 mt-0.5">{sublabel}</p>
+    </motion.button>
   );
 }
 
@@ -1540,7 +2186,7 @@ function MobileOrderSummary({
       {items.map((item) => (
         <div key={`${item.id}-${item.size}-${item.color}`} className="flex gap-3">
           <div className="relative shrink-0">
-            <div className="h-14 w-10 bg-stone-100 overflow-hidden">
+            <div className="h-14 w-10 bg-stone-100 rounded-lg overflow-hidden">
               <img
                 src={getValidImage(item.image)}
                 alt={item.name}
@@ -1548,7 +2194,7 @@ function MobileOrderSummary({
                 loading="lazy"
               />
             </div>
-            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-stone-500 text-stone-50 text-[9px] font-medium flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-stone-600 text-stone-50 text-[9px] font-medium flex items-center justify-center">
               {item.quantity}
             </span>
           </div>
@@ -1558,19 +2204,23 @@ function MobileOrderSummary({
               {getSizeLabel(item.size)} · {getColorLabel(item.color)}
             </p>
           </div>
-          <p className="text-xs font-medium text-stone-900 shrink-0">
-            ${(item.price * item.quantity).toFixed(2)}
+          <p className="text-xs font-semibold text-stone-900 shrink-0">
+            {formatCurrency(item.price * item.quantity)}
           </p>
         </div>
       ))}
 
       {/* Coupon */}
       {appliedCoupon ? (
-        <div className="flex items-center justify-between px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-[11px] font-medium">
+        <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-[11px] font-medium">
           <span className="flex items-center gap-1.5">
             <Tag size={11} /> {appliedCoupon} applied
           </span>
-          <button onClick={handleRemoveCoupon} aria-label="Remove coupon" className="text-green-500">
+          <button
+            onClick={handleRemoveCoupon}
+            aria-label="Remove coupon"
+            className="text-emerald-500"
+          >
             <X size={13} />
           </button>
         </div>
@@ -1583,14 +2233,18 @@ function MobileOrderSummary({
               onChange={(e) => setCouponInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
               placeholder="Discount code"
-              className="flex-1 px-3 py-2 text-xs border border-stone-200 bg-transparent placeholder:text-stone-400 focus:outline-none focus:border-stone-500"
+              className="flex-1 px-3 py-2 text-xs border border-stone-200 rounded-xl bg-transparent placeholder:text-stone-400 focus:outline-none focus:border-stone-500"
             />
             <button
               onClick={handleApplyCoupon}
               disabled={couponLoading || !couponInput.trim()}
-              className="px-4 py-2 border border-stone-200 text-[10px] tracking-widest uppercase text-stone-600 hover:border-stone-900 disabled:opacity-50"
+              className="px-4 py-2 border border-stone-200 text-[10px] tracking-widest uppercase text-stone-600 hover:border-stone-900 disabled:opacity-50 rounded-xl"
             >
-              {couponLoading ? <RefreshCw size={11} className="animate-spin" /> : "Apply"}
+              {couponLoading ? (
+                <RefreshCw size={11} className="animate-spin" />
+              ) : (
+                "Apply"
+              )}
             </button>
           </div>
           {couponError && (
@@ -1602,34 +2256,42 @@ function MobileOrderSummary({
       )}
 
       {/* Totals */}
-      <div className="space-y-1.5 text-xs text-stone-600 border-t border-stone-100 pt-3">
+      <div className="space-y-2 text-xs text-stone-600 border-t border-stone-100 pt-3">
         <div className="flex justify-between">
-          <span>Subtotal</span><span>${total.toFixed(2)}</span>
+          <span>Subtotal</span>
+          <span className="font-medium">{formatCurrency(total)}</span>
         </div>
         <div className="flex justify-between">
           <span>Shipping</span>
-          <span className={isFreeShipping ? "text-green-600" : ""}>
-            {isFreeShipping ? "Free" : shippingCost === 0 ? "TBD" : `$${shippingCost.toFixed(2)}`}
+          <span className={`font-medium ${isFreeShipping ? "text-emerald-600" : ""}`}>
+            {isFreeShipping
+              ? "Free"
+              : shippingCost === 0
+              ? "TBD"
+              : formatCurrency(shippingCost)}
           </span>
         </div>
         {couponDiscount > 0 && (
-          <div className="flex justify-between text-green-600">
+          <div className="flex justify-between text-emerald-600">
             <span>Discount ({appliedCoupon})</span>
-            <span>-${couponDiscount.toFixed(2)}</span>
+            <span className="font-medium">−{formatCurrency(couponDiscount)}</span>
           </div>
         )}
-        <div className="flex justify-between font-medium text-stone-900 border-t border-stone-100 pt-2 mt-1">
-          <span>Total</span><span>${orderTotal.toFixed(2)}</span>
+        <div className="flex justify-between font-bold text-stone-900 border-t border-stone-100 pt-2 mt-1 text-sm">
+          <span>Total</span>
+          <span>{formatCurrency(orderTotal)}</span>
         </div>
       </div>
 
       {/* Free-shipping bar */}
       {amountToFreeShipping > 0 && (
         <div>
-          <p className="text-[10px] text-stone-400 mb-1">${amountToFreeShipping.toFixed(2)} away from free shipping</p>
-          <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
+          <p className="text-[10px] text-stone-400 mb-1.5">
+            {formatCurrency(amountToFreeShipping)} away from free shipping
+          </p>
+          <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-stone-700 rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-stone-600 to-stone-900 rounded-full transition-all duration-500"
               style={{ width: `${freeShippingPct}%` }}
             />
           </div>
@@ -1671,7 +2333,7 @@ function Field({
     <div className="w-full">
       <label
         htmlFor={id}
-        className="block text-[10px] tracking-[0.15em] uppercase text-stone-500 font-medium mb-1.5"
+        className="block text-[10px] tracking-[0.15em] uppercase text-stone-500 font-semibold mb-1.5"
       >
         {label}
       </label>
@@ -1687,23 +2349,27 @@ function Field({
           autoComplete={autoComplete}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full px-3 py-2.5 text-xs border bg-transparent text-stone-900 placeholder:text-stone-300 focus:outline-none transition-colors ${
+          className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-transparent text-stone-900 placeholder:text-stone-300 focus:outline-none focus:ring-2 transition-all ${
             error
-              ? "border-red-300 focus:border-red-500"
-              : "border-stone-200 focus:border-stone-700"
-          } ${icon ? "pr-9" : ""} ${
+              ? "border-red-300 focus:border-red-400 focus:ring-red-500/10"
+              : "border-stone-200 focus:border-stone-400 focus:ring-stone-900/5"
+          } ${icon ? "pr-10" : ""} ${
             readOnly ? "bg-stone-50 text-stone-500 cursor-default" : ""
           }`}
         />
         {icon && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
             {icon}
           </div>
         )}
       </div>
       {error && (
-        <p id={`${id}-error`} role="alert" className="text-[10px] text-red-500 mt-1">
-          {error}
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="text-[10px] text-red-500 mt-1.5 flex items-center gap-1"
+        >
+          <AlertCircle size={9} /> {error}
         </p>
       )}
     </div>

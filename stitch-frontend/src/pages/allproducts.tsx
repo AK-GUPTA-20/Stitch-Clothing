@@ -7,8 +7,8 @@ import Footer from "@/components/Footer";
 import { ProductSkeletonGrid } from "@/components/ProductSkeleton";
 import { useProductContext } from "@/lib/context/ProductContext";
 import { Product, GetProductsParams } from "@/lib/types/product.types";
-import { categories, sortOptions } from "@/lib/data/products";
-import { getCategoryLabel, getValidImages } from "@/lib/utils";
+// Deleted import { categories, sortOptions } from "@/lib/data/products";
+import { getCategoryLabel, getValidImages, formatCurrency } from "@/lib/utils";
 import { useCart } from "@/lib/context/CartContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useWishlist } from "@/lib/context/WishlistContext";
@@ -156,6 +156,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
       image: images[0],
       size: size,
       color: colorName,
+      slug: product.slug,
     });
     toast.success("Added to Bag", `${product.name} (${size} / ${colorName}) has been added.`);
   };
@@ -163,7 +164,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/product/${product.id || product._id}`);
+    router.push(`/product/${product.slug || product.id || product._id}`);
   };
 
   return (
@@ -174,7 +175,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
       onClick={handleCardClick}
     >
       <div className="relative aspect-[3/4] bg-zinc-100 overflow-hidden mb-5">
-        <img
+        <img loading="lazy" decoding="async"
           src={images[activeImage]}
           alt={product.name}
           className={`w-full h-full object-cover object-center transition-transform duration-1000 ease-out ${isHovered && !isMobile ? 'scale-105' : 'scale-100'}`}
@@ -208,7 +209,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
         {!isMobile && (
           <div className={`absolute inset-0 bg-zinc-900/10 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
             <div className="absolute top-4 right-4 flex flex-col gap-2 transform translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-              <button 
+              <button aria-label="Add to Wishlist"  
                 onClick={handleWishlist}
                 className="h-10 w-10 bg-white rounded-full flex items-center justify-center text-zinc-900 hover:bg-zinc-900 hover:text-white transition-colors shadow-lg"
               >
@@ -258,7 +259,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
       <div className="flex flex-col flex-1 px-1">
         <div className="flex items-start justify-between gap-4 mb-2">
           <Link 
-            href={`/product/${product.id || product._id}`} 
+            href={`/product/${product.slug || product.id || product._id}`} 
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -268,7 +269,7 @@ const EnhancedProductCard = ({ product, onQuickView, isMobile }: { product: any,
           >
             {product.name}
           </Link>
-          <span className="text-sm font-medium text-zinc-900 tabular-nums">${product.price}</span>
+          <span className="text-sm font-medium text-zinc-900 tabular-nums">{formatCurrency(product.price)}</span>
         </div>
         
         <p className="text-xs text-zinc-500 mb-4">{getCategoryLabel(product.category)}</p>
@@ -375,14 +376,14 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
       <div className="relative w-full max-w-5xl bg-white shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[70vh] animate-in fade-in zoom-in-95 duration-300">
         
         {/* Close Btn */}
-        <button onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm">
+        <button aria-label="Close"  onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm">
           <X size={20} />
         </button>
 
         {/* Gallery Section */}
         <div className="w-full md:w-1/2 bg-zinc-50 flex flex-col h-[50%] md:h-full relative group">
           <div className="flex-1 relative overflow-hidden">
-            <img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover object-center absolute inset-0" />
+            <img loading="lazy" decoding="async" src={images[activeImage]} alt={product.name} className="w-full h-full object-cover object-center absolute inset-0" />
             <button className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 backdrop-blur-md flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm" onClick={() => setActiveImage(prev => prev === 0 ? images.length - 1 : prev - 1)}>
               <ChevronLeft size={20} />
             </button>
@@ -393,7 +394,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
           <div className="h-24 bg-white border-t border-zinc-100 flex p-3 gap-3 overflow-x-auto">
             {images.map((img, idx) => (
               <button key={idx} onClick={() => setActiveImage(idx)} className={`h-full aspect-square relative border-2 transition-all ${activeImage === idx ? 'border-zinc-900' : 'border-transparent hover:border-zinc-300'}`}>
-                <img src={img} className="w-full h-full object-cover" alt="" />
+                <img loading="lazy" decoding="async" src={img} className="w-full h-full object-cover" alt="" />
               </button>
             ))}
           </div>
@@ -403,7 +404,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
         <div className="w-full md:w-1/2 h-[50%] md:h-full overflow-y-auto p-8 lg:p-12 flex flex-col">
           <p className="text-[10px] tracking-[0.3em] uppercase text-zinc-400 font-bold mb-3">{getCategoryLabel(product.category)}</p>
           <h2 className="font-serif text-3xl text-zinc-900 mb-4">{product.name}</h2>
-          <p className="text-xl font-medium text-zinc-900 mb-6 tabular-nums">${product.price.toFixed(2)}</p>
+          <p className="text-xl font-medium text-zinc-900 mb-6 tabular-nums">{formatCurrency(product.price)}</p>
           <p className="text-sm text-zinc-600 leading-relaxed mb-8">{product.description || "Thoughtfully designed and crafted from premium organic materials to endure through seasons and trends."}</p>
 
           <div className="mb-8">
@@ -432,7 +433,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
           </div>
 
           <div className="mt-auto border-t border-zinc-100 pt-6">
-            <Link href={`/product/${product.id || product._id}`} className="flex items-center justify-between group py-3">
+            <Link href={`/product/${product.slug || product.id || product._id}`} className="flex items-center justify-between group py-3">
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-900">View Full Details</span>
               <ArrowUpRight size={16} className="text-zinc-400 group-hover:text-zinc-900 transition-colors group-hover:translate-x-1 group-hover:-translate-y-1" />
             </Link>
@@ -446,6 +447,15 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
 // ============================================================================
 // 4. MAIN PAGE COMPONENT
 // ============================================================================
+
+const categories = ["Tops", "Bottoms", "Outerwear", "Footwear", "Accessories", "Knitwear"];
+const sortOptions = [
+  { value: "featured", label: "Featured" },
+  { value: "newest", label: "Newest Arrivals" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
+  { value: "rating", label: "Highest Rated" },
+];
 
 export default function AllProductsPage() {
   const { products, loading, isOffline, fetchProducts, search } = useProductContext();
@@ -635,7 +645,7 @@ export default function AllProductsPage() {
             className="absolute inset-0 z-0 transition-transform duration-[2000ms] ease-out opacity-40 mix-blend-luminosity"
             style={{ transform: `translate(${(mousePos.x - window.innerWidth / 2) * -0.01}px, ${(mousePos.y - window.innerHeight / 2) * -0.01}px) scale(1.05)` }}
           >
-            <img
+            <img loading="lazy" decoding="async"
               src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=2400&q=85"
               alt="Archive Background"
               className="w-full h-full object-cover object-[center_30%]"
@@ -794,12 +804,7 @@ export default function AllProductsPage() {
                 ))}
               </div>
               
-              {/* Pagination Mock */}
-              <div className="mt-24 flex justify-center">
-                <button className="border border-zinc-300 text-zinc-900 px-12 py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-zinc-900 hover:text-white transition-all duration-300 shadow-sm hover:shadow-xl">
-                  Load More Objects
-                </button>
-              </div>
+
             </ScrollReveal>
           ) : (
             // Empty State

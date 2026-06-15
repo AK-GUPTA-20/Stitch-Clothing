@@ -133,10 +133,10 @@ function getColorHexFromName(colorName: string): string | null {
 
 export default function ProductPage() {
   const router = useRouter();
-  const { id } = router.query;
+  const { slug } = router.query;
   if (!router.isReady) return <Loading />;
-  const productId = Array.isArray(id) ? id[0] : typeof id === "string" ? id : "";
-  return <ProductPageInner id={productId} />;
+  const productSlug = Array.isArray(slug) ? slug[0] : typeof slug === "string" ? slug : "";
+  return <ProductPageInner id={productSlug} />;
 }
 
 function ProductPageInner({ id }: { id: string }) {
@@ -297,6 +297,20 @@ function ProductDetail({
           ).values(),
         ];
 
+  const currentVariant = React.useMemo(() => {
+    if (!product.variants || product.variants.length === 0) return null;
+    return product.variants.find((v: any) => {
+      const vSize = getSizeLabel(v.size);
+      const vColor = getColorLabel(v.color);
+      const sizeMatches = !selectedSize || selectedSize === vSize;
+      const colorMatches = !selectedColor || selectedColor === vColor;
+      return sizeMatches && colorMatches;
+    }) || product.variants[0];
+  }, [product.variants, selectedSize, selectedColor]);
+
+  const displayPrice = currentVariant?.price || product.salePrice || product.price || product.basePrice || 0;
+  const displayCompareAtPrice = product.compareAtPrice || product.originalPrice;
+
   const handleAdd = () => {
     if (!selectedSize && sizes.length > 0) {
       setSizeError(true);
@@ -307,7 +321,7 @@ function ProductDetail({
       add({
         id: toText(product._id) || product.id || "",
         name: product.name,
-        price: product.price,
+        price: displayPrice,
         image: images[0] || "",
         size: selectedSize,
         color: selectedColor,
@@ -363,12 +377,13 @@ function ProductDetail({
   };
 
   const discountAmount =
-    (product.compareAtPrice || product.originalPrice) &&
-    (product.compareAtPrice || product.originalPrice)! - product.price;
+    displayCompareAtPrice && displayCompareAtPrice > displayPrice
+      ? displayCompareAtPrice - displayPrice
+      : 0;
 
   const discountPct =
-    discountAmount && product.compareAtPrice
-      ? Math.round((discountAmount / product.compareAtPrice) * 100)
+    discountAmount && displayCompareAtPrice
+      ? Math.round((discountAmount / displayCompareAtPrice) * 100)
       : null;
 
   // Accordion data
@@ -554,7 +569,7 @@ function ProductDetail({
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://stitch-shop.com/product/${product._id}`,
+      "url": `https://stitch-shop.com/product/${product.slug || product._id}`,
       "priceCurrency": "INR",
       "price": product.salePrice || product.basePrice,
       "availability": product.isInStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -568,7 +583,7 @@ function ProductDetail({
         description={product.description} 
         image={images[0]} 
         type="product" 
-        url={`https://stitch-shop.com/product/${product._id}`} 
+        url={`https://stitch-shop.com/product/${product.slug || product._id}`} 
       />
       <script
         type="application/ld+json"
@@ -620,7 +635,7 @@ function ProductDetail({
                             : "opacity-40 hover:opacity-70 hover:ring-1 hover:ring-stone-400 hover:ring-offset-1"
                         }`}
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={img}
                           alt=""
                           className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
@@ -636,7 +651,7 @@ function ProductDetail({
                     className="relative bg-gradient-to-br from-stone-50 to-stone-100 aspect-[4/5] overflow-hidden cursor-zoom-in group rounded-xl shadow-[0_2px_40px_rgba(0,0,0,0.06)]"
                     onClick={() => setZoomed(true)}
                   >
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={images[activeImage] || ""}
                       alt={product.name}
                       className="w-full h-full object-contain p-6 sm:p-10 transition-transform duration-700 group-hover:scale-[1.04]"
@@ -829,15 +844,12 @@ function ProductDetail({
                 {/* Price */}
                 <div className="flex items-baseline gap-3 mb-7 py-4 border-b border-stone-100">
                   <span className="text-[2rem] font-light text-stone-900 tracking-tight tabular-nums" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {formatMoney(product.price)}
+                    {formatMoney(displayPrice)}
                   </span>
-                  {discountAmount && (
+                  {discountAmount > 0 && (
                     <>
                       <span className="text-sm text-stone-400 line-through tabular-nums font-light">
-                        {formatMoney(
-                          (product.compareAtPrice ||
-                            product.originalPrice)!
-                        )}
+                        {formatMoney(displayCompareAtPrice as number)}
                       </span>
                       <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full tracking-wide">
                         Save {formatMoney(discountAmount)}
@@ -1067,7 +1079,7 @@ function ProductDetail({
                 <div className="bg-white border border-stone-100 rounded-3xl p-8 sm:p-12 flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-8 sm:gap-12 shadow-sm hover:shadow-md transition-shadow">
                   <div className="shrink-0">
                     {(product.seller as any).store?.logo ? (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={(product.seller as any).store.logo}
                         alt="Seller Logo"
                         className="w-28 h-28 sm:w-36 sm:h-36 rounded-full object-cover shadow-sm border border-stone-100"
@@ -1575,7 +1587,7 @@ function ProductDetail({
               className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 px-4 sm:px-6 py-3.5 z-40 flex items-center justify-between gap-4 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
             >
               <div className="hidden sm:flex items-center gap-4 min-w-0">
-                <img
+                <img loading="lazy" decoding="async"
                   src={images[0] || ""}
                   alt={product.name}
                   className="w-12 h-12 object-cover shrink-0"

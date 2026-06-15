@@ -256,8 +256,13 @@ exports.registerSeller = asyncHandler(async (req, res, next) => {
 
   const seller = await Seller.create(safeData);
 
+  // Promote user role to "seller" so they can access seller-only endpoints
+  const User = require("../../models/User");
+  await User.findByIdAndUpdate(req.user._id, { role: "seller" }, { new: true });
+
   res.status(201).json({ success: true, data: seller });
 });
+
 
 //* Get the authenticated seller's full profile  GET /api/v1/sellers/me
 exports.getMyProfile = asyncHandler(async (req, res, next) => {
@@ -285,7 +290,7 @@ exports.updateBusinessInfo = asyncHandler(async (req, res, next) => {
   const seller = await Seller.findOneAndUpdate(
     { userId: req.user._id },
     { $set: updates },
-    { new: true, runValidators: true }
+    { new: true, runValidators: false }
   );
 
   if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
@@ -407,6 +412,9 @@ exports.updatePayoutSettings = asyncHandler(async (req, res, next) => {
 exports.uploadDocument = asyncHandler(async (req, res, next) => {
   let { type, fileUrl, expiresAt } = req.body;
 
+  const seller = await Seller.findOne({ userId: req.user._id });
+  if (!seller) return next(new ErrorHandler("Seller profile not found. Please complete your business profile first.", 404));
+
   if (req.file) {
     const fileName = req.file.originalname || `kyc-${Date.now()}`;
     const result = await uploadToImageKit(req.file.buffer, fileName, "/stitch/kyc");
@@ -416,9 +424,6 @@ exports.uploadDocument = asyncHandler(async (req, res, next) => {
   if (!type || !fileUrl) {
     return next(new ErrorHandler("type and file(Url) are required.", 400));
   }
-
-  const seller = await Seller.findOne({ userId: req.user._id });
-  if (!seller) return next(new ErrorHandler("Seller profile not found.", 404));
 
   // Replace if same type already exists and is not approved
   const existingIdx = seller.documents.findIndex((d) => d.type === type && d.status !== "approved");

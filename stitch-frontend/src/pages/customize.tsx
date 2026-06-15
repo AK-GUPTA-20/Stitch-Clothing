@@ -178,7 +178,7 @@ export default function CustomizePage() {
                 </label>
                 {decalImage && (
                   <div className="flex items-center gap-2 mt-2">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={decalImage}
                       alt="Logo preview"
                       className="w-12 h-12 object-contain rounded border bg-white"

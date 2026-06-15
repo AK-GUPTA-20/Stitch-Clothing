@@ -181,11 +181,31 @@ export const sellerService = {
     apiClient.get<{ data: Seller }>(`/api/v1/sellers/slug/${slug}`),
 
   // ── Profile & Onboarding ────────────────────────────────────────────────
+  /** Map frontend BusinessInfo shape → backend Seller schema field names */
+  _toBackendBusinessPayload: (data: BusinessInfo) => ({
+    businessName: data.businessName,
+    ...(data.legalEntityName ? { legalEntityName: data.legalEntityName } : {}),
+    // Store taxId as gstNumber (backend no longer runs regex validators on PATCH)
+    ...(data.taxId ? { gstNumber: data.taxId } : {}),
+    businessPhone: data.phone,
+    // Map frontend "street" → backend "line1" to match the shared addressSchema
+    businessAddress: data.address
+      ? {
+          line1: data.address.street,
+          city: data.address.city,
+          state: data.address.state,
+          postalCode: data.address.postalCode,
+          country: (data.address.country || 'India').toUpperCase(),
+        }
+      : undefined,
+    businessType: 'individual', // default required by Seller model
+  }),
+
   register: (data: BusinessInfo) =>
-    apiClient.post<{ seller: Seller }>('/api/v1/sellers/register', data),
+    apiClient.post<{ seller: Seller }>('/api/v1/sellers/register', sellerService._toBackendBusinessPayload(data)),
   getMe: () => apiClient.get<Seller>('/api/v1/sellers/me'),
   updateBusinessInfo: (data: BusinessInfo) =>
-    apiClient.patch<{ seller: Seller }>('/api/v1/sellers/me/business', data),
+    apiClient.patch<{ seller: Seller }>('/api/v1/sellers/me/business', sellerService._toBackendBusinessPayload(data)),
   updateStoreInfo: (data: StoreInfo) =>
     apiClient.patch<{ seller: Seller }>('/api/v1/sellers/me/store', data),
   updateShippingSettings: (data: ShippingSettings) =>

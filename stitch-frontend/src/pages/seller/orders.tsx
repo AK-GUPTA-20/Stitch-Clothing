@@ -124,7 +124,7 @@ function OrderRow({
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-stone-100 overflow-hidden shrink-0 border border-stone-100">
             {primaryImage ? (
-              <img src={primaryImage} alt="" className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={primaryImage} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Package size={14} className="text-stone-300" />
@@ -241,7 +241,7 @@ function OrderRow({
           )}
 
           {canCancel && (
-            <button
+            <button aria-label="Close" 
               onClick={onCancel}
               title="Cancel order"
               className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all btn-xs"
@@ -315,7 +315,7 @@ function OrderDetailPanel({ order, onClose }: { order: Order; onClose: () => voi
                 <div key={item._id} className="flex items-center gap-3">
                   <div className="w-12 h-14 bg-stone-50 rounded-lg border border-stone-100 overflow-hidden shrink-0">
                     {item.productImage ? (
-                      <img src={item.productImage} alt="" className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={item.productImage} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-stone-200" /></div>
                     )}

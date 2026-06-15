@@ -10,8 +10,8 @@ export default function AdminAccessPage() {
   const router = useRouter();
   const { login } = useAuth();
   
-  const [email, setEmail] = useState('admin123@gmail.com');
-  const [password, setPassword] = useState('admin');
+  const [email, setEmail] = useState('@gmail.com');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,7 +27,12 @@ export default function AdminAccessPage() {
       } else if (res.success) {
         setError('Access denied: User is not an admin.');
       } else {
-        setError(res.message || 'Authentication failed');
+        const errorMsg = res.message || 'Authentication failed';
+        if (errorMsg.toLowerCase().includes('credential') || errorMsg.toLowerCase().includes('not found')) {
+          setError(`${errorMsg} (Hint: If this is a new setup, ensure you run 'npm run seed:admin' on the backend.)`);
+        } else {
+          setError(errorMsg);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication');

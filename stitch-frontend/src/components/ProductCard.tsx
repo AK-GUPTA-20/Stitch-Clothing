@@ -113,14 +113,14 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
       <div className="relative w-full max-w-5xl bg-white shadow-2xl overflow-hidden flex flex-col md:flex-row h-[85vh] md:h-[70vh] animate-in fade-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         
         {/* Close Btn */}
-        <button onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm">
+        <button aria-label="Close"  onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm">
           <X size={20} />
         </button>
 
         {/* Gallery Section */}
         <div className="w-full md:w-1/2 bg-zinc-50 flex flex-col h-[50%] md:h-full relative group">
           <div className="flex-1 relative overflow-hidden">
-            <img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover object-center absolute inset-0" />
+            <img loading="lazy" decoding="async" src={images[activeImage]} alt={product.name} className="w-full h-full object-cover object-center absolute inset-0" />
             <button className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 backdrop-blur-md flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm" onClick={() => setActiveImage(prev => prev === 0 ? images.length - 1 : prev - 1)}>
               <ChevronLeft size={20} />
             </button>
@@ -131,7 +131,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
           <div className="h-24 bg-white border-t border-zinc-100 flex p-3 gap-3 overflow-x-auto">
             {images.map((img, idx) => (
               <button key={idx} onClick={() => setActiveImage(idx)} className={`h-full aspect-square relative border-2 transition-all ${activeImage === idx ? 'border-zinc-900' : 'border-transparent hover:border-zinc-300'}`}>
-                <img src={img} className="w-full h-full object-cover" alt="" />
+                <img loading="lazy" decoding="async" src={img} className="w-full h-full object-cover" alt="" />
               </button>
             ))}
           </div>
@@ -170,7 +170,7 @@ const QuickViewModal = ({ product, isOpen, onClose }: { product: any, isOpen: bo
           </div>
 
           <div className="mt-auto border-t border-zinc-100 pt-6">
-            <Link href={`/product/${product.id || product._id}`} className="flex items-center justify-between group py-3">
+            <Link href={`/product/${product.slug || product.id || product._id}`} className="flex items-center justify-between group py-3">
               <span className="text-xs font-bold uppercase tracking-wider text-zinc-900">View Full Details</span>
               <ArrowUpRight size={16} className="text-zinc-400 group-hover:text-zinc-900 transition-colors group-hover:translate-x-1 group-hover:-translate-y-1" />
             </Link>
@@ -257,6 +257,7 @@ function ProductCard({ product }: ProductCardProps) {
       image: images[0],
       size: size,
       color: colorName,
+      slug: product.slug,
     });
     toast.success("Added to Bag", `${product.name} (${size} / ${colorName}) has been added.`);
   };
@@ -264,7 +265,7 @@ function ProductCard({ product }: ProductCardProps) {
   const handleCardClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/product/${product.id || product._id}`);
+    router.push(`/product/${product.slug || product.id || product._id}`);
   };
 
   return (
@@ -276,7 +277,7 @@ function ProductCard({ product }: ProductCardProps) {
         onClick={handleCardClick}
       >
         <div className="relative aspect-[3/4] bg-zinc-100 overflow-hidden mb-5">
-          <img
+          <img loading="lazy" decoding="async"
             src={images[activeImage]}
             alt={product.name}
             className={`w-full h-full object-cover object-center transition-transform duration-1000 ease-out ${isHovered && !isMobile ? 'scale-105' : 'scale-100'}`}
@@ -310,7 +311,7 @@ function ProductCard({ product }: ProductCardProps) {
           {!isMobile && (
             <div className={`absolute inset-0 bg-zinc-900/10 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
               <div className="absolute top-4 right-4 flex flex-col gap-2 transform translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500 delay-100">
-                <button 
+                <button aria-label="Add to Wishlist"  
                   onClick={handleWishlist}
                   className="h-10 w-10 bg-white rounded-full flex items-center justify-center text-zinc-900 hover:bg-zinc-900 hover:text-white transition-colors shadow-lg"
                 >
@@ -364,7 +365,7 @@ function ProductCard({ product }: ProductCardProps) {
         <div className="flex flex-col flex-1 px-1">
           <div className="flex items-start justify-between gap-4 mb-2">
             <Link 
-              href={`/product/${product.id || product._id}`} 
+              href={`/product/${product.slug || product.id || product._id}`} 
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

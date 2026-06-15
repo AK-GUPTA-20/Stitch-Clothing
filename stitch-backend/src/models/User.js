@@ -201,7 +201,7 @@ const userSchema = new Schema(
       unique : true,
       match  : [/^\+?[1-9]\d{1,14}$/, "Invalid phone (E.164 format expected)"],
     },
-    password  : { type: String, minlength: 8, select: false },
+    password  : { type: String, minlength: 5, select: false },
     avatar    : { type: String },
     gender    : { type: String, enum: ["male", "female", "other", "prefer_not_to_say"] },
     dob       : { type: Date },

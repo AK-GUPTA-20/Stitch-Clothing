@@ -998,7 +998,7 @@ export default function ProfilePage() {
             <div className="bg-white border border-stone-200 rounded-xl p-5 flex flex-col items-center text-center gap-3">
               <div className="w-16 h-16 rounded-full avatar-gradient flex items-center justify-center text-white font-display text-xl font-light select-none">
                 {user.avatar
-                  ? <img src={user.avatar} alt={user.firstName} className="w-full h-full rounded-full object-cover" />
+                  ? <img loading="lazy" decoding="async" src={user.avatar} alt={user.firstName} className="w-full h-full rounded-full object-cover" />
                   : initials
                 }
               </div>

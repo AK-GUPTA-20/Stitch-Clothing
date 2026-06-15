@@ -395,8 +395,13 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
     req.body.approvedBy = req.user._id;
   }
 
-  const ALLOWED_PRODUCT_FIELDS = ["name", "description", "basePrice", "salePrice", "category", "brand", "tags", "images", "variants", "isInStock", "status", "isActive", "publishedAt", "approvedAt", "approvedBy", "sellerId"];
+  const ALLOWED_PRODUCT_FIELDS = ["name", "slug", "description", "basePrice", "salePrice", "category", "brand", "tags", "images", "variants", "isInStock", "status", "isActive", "publishedAt", "approvedAt", "approvedBy", "sellerId"];
   const safeData = pick(req.body, ALLOWED_PRODUCT_FIELDS);
+  
+  if (!safeData.slug && safeData.name) {
+    safeData.slug = safeData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+  }
+
   const product = await Product.create(safeData);
 
   res.status(201).json({ success: true, data: product });

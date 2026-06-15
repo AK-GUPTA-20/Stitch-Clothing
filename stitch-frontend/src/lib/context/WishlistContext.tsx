@@ -15,6 +15,7 @@ interface WishlistItem {
   priceWhenAdded?: number;
   notifyOnPriceDrop?: boolean;
   addedAt?: string;
+  slug?: string;
 }
 
 interface WishlistContextType {
@@ -70,6 +71,12 @@ function normalizeWishlistItem(item: Partial<WishlistItem> & Record<string, unkn
         ? item.priceWhenAdded
         : 0;
 
+  const slug = typeof item.slug === "string" && item.slug
+    ? item.slug
+    : typeof populatedProduct?.slug === "string"
+      ? populatedProduct.slug
+      : "";
+
   return {
     _id: typeof item._id === "string" ? item._id : undefined,
     productId,
@@ -81,6 +88,7 @@ function normalizeWishlistItem(item: Partial<WishlistItem> & Record<string, unkn
     addedAt: typeof item.addedAt === "string" ? item.addedAt : undefined,
     priceWhenAdded: typeof item.priceWhenAdded === "number" ? item.priceWhenAdded : undefined,
     notifyOnPriceDrop: typeof item.notifyOnPriceDrop === "boolean" ? item.notifyOnPriceDrop : undefined,
+    slug,
   };
 }
 
@@ -95,6 +103,7 @@ function mapServerWishlist(wishlist: unknown[]): WishlistItem[] {
       image: normalized.image,
       variantId: normalized.variantId,
       addedAt: normalized.addedAt,
+      slug: normalized.slug,
     };
   });
 }
@@ -181,6 +190,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           name: normalizedItem.name,
           price: normalizedItem.price,
           image: normalizedItem.image,
+          slug: normalizedItem.slug,
         },
       ];
     });

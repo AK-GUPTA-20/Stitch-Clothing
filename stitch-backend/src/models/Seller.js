@@ -133,14 +133,14 @@ const sellerSchema = new Schema(
     gstNumber         : {
       type  : String,
       trim  : true,
-      match : [/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, "Invalid GST"],
+      // Note: format validated at KYC review stage, not at profile save
     },
     gstRegisteredState: { type: String, trim: true },
     panNumber         : {
       type      : String,
       uppercase : true,
       trim      : true,
-      match     : [/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN"],
+      // Note: format validated at KYC review stage, not at profile save
     },
     website           : { type: String, trim: true },
     businessAddress   : { type: addressSchema },

@@ -179,15 +179,25 @@ export default function SellerDashboardPage() {
       >
         <div className="space-y-6">
           {/* ── Verification Alert ───────────────────────────────────────── */}
-          {seller && seller.verificationStatus !== 'approved' && (
+          {seller &&
+            seller.verificationStatus !== 'approved' &&
+            seller.status !== 'verified' &&
+            seller.verificationStatus != null &&
+            seller.verificationStatus !== '' && (
             <div
               className={`flex items-start gap-3 px-4 py-3.5 rounded-xl border ${
-                seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
+                seller.verificationStatus === 'not_submitted' ||
+                seller.verificationStatus === 'documents_received' ||
+                seller.verificationStatus === 'under_review'
                   ? 'bg-amber-50 border-amber-200 text-amber-800'
-                  : 'bg-red-50 border-red-200 text-red-800'
+                  : seller.verificationStatus === 'suspended' || seller.verificationStatus === 'rejected'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'hidden'
               }`}
             >
-              {seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review' ? (
+              {seller.verificationStatus === 'not_submitted' ||
+              seller.verificationStatus === 'documents_received' ||
+              seller.verificationStatus === 'under_review' ? (
                 <Clock size={16} className="shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
@@ -196,23 +206,29 @@ export default function SellerDashboardPage() {
                 <p className="text-xs font-semibold">
                   {seller.verificationStatus === 'not_submitted'
                     ? 'KYC Not Submitted'
-                    : seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
+                    : seller.verificationStatus === 'documents_received' ||
+                      seller.verificationStatus === 'under_review'
                     ? 'Account Pending Verification'
                     : seller.verificationStatus === 'suspended'
                     ? 'Account Suspended'
                     : seller.verificationStatus === 'rejected'
                     ? 'Account Rejected'
-                    : 'Verification Required'}
+                    : null}
                 </p>
                 <p className="text-[11px] mt-0.5 opacity-80">
                   {seller.verificationStatus === 'not_submitted'
                     ? 'Please submit your KYC documents to activate your account.'
-                    : seller.verificationStatus === 'documents_received' || seller.verificationStatus === 'under_review'
+                    : seller.verificationStatus === 'documents_received' ||
+                      seller.verificationStatus === 'under_review'
                     ? 'Your account is under review. We will notify you once approved.'
-                    : seller.verificationRemarks ||
-                      'Please contact support for assistance.'}
+                    : seller.verificationStatus === 'suspended'
+                    ? seller.verificationRemarks || 'Your account has been suspended. Please contact support.'
+                    : seller.verificationStatus === 'rejected'
+                    ? seller.verificationRemarks || 'Your KYC was rejected. Please re-submit your documents.'
+                    : null}
                 </p>
-                {(seller.verificationStatus === 'not_submitted' || seller.verificationStatus === 'rejected') && (
+                {(seller.verificationStatus === 'not_submitted' ||
+                  seller.verificationStatus === 'rejected') && (
                   <Link
                     href="/seller/kyc"
                     className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold underline"
@@ -223,6 +239,7 @@ export default function SellerDashboardPage() {
               </div>
             </div>
           )}
+
 
           {/* ── Stat Cards ──────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

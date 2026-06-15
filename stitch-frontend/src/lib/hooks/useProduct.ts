@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { productService } from '../api/productService';
 import { Product } from '../types/product.types';
-import { products as staticProducts } from '../data/products';
 
 interface UseProductResult {
   product: Product | null;
@@ -71,20 +70,6 @@ function normalise(p: Product): Product {
   };
 }
 
-function normStatic(p: any): Product {
-  return {
-    ...p,
-    _id: p.id,
-    status: 'approved' as const,
-    images: (p.images || [p.image]).map((url: string, i: number) => ({
-      _id: `static-${i}`,
-      url,
-      isPrimary: i === 0,
-      order: i,
-    })),
-    variants: [],
-  };
-}
 
 function toRouteId(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -122,8 +107,23 @@ export function useProduct(id: string | undefined): UseProductResult {
 
     async function load() {
       try {
-        // Try API first
-        const res = await productService.getProductById(normalizedId);
+        // Try API first (slug or ID based on format)
+        let res;
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(normalizedId);
+        if (isObjectId) {
+          try {
+            res = await productService.getProductById(normalizedId);
+          } catch {
+            res = await productService.getProductBySlug(normalizedId);
+          }
+        } else {
+          try {
+            res = await productService.getProductBySlug(normalizedId);
+          } catch {
+            res = await productService.getProductById(normalizedId);
+          }
+        }
+
         if (cancelled) return;
         const p = normalise((res as any).data || (res as any).product || res);
         setProduct(p);
@@ -139,27 +139,10 @@ export function useProduct(id: string | undefined): UseProductResult {
           const relRes = await productService.getRelatedProducts(stringId, 4);
           if (!cancelled) setRelated((relRes.data || relRes.products || []).map(normalise));
         } catch {
-          if (!cancelled) {
-            setRelated(
-              staticProducts
-                .filter((sp) => sp.id !== normalizedId)
-                .slice(0, 4)
-                .map(normStatic)
-            );
-          }
+            setRelated([]);
         }
       } catch {
-        // Offline: fall back to static data by matching id as slug or _id
-        const fallback = staticProducts.find((sp) => sp.id === normalizedId);
-        if (fallback && !cancelled) {
-          setProduct(normStatic(fallback));
-          setRelated(
-            staticProducts
-              .filter((sp) => sp.id !== normalizedId)
-              .slice(0, 4)
-              .map(normStatic)
-          );
-        } else if (!cancelled) {
+        if (!cancelled) {
           setError('Product not found.');
         }
       } finally {

@@ -32,7 +32,12 @@ export default function LoginPage() {
     try {
       const res = await login(data);
       if (res.success) {
-        router.push(res.user && !res.user.emailVerified ? '/verify-email' : '/profile');
+        if (res.user && !res.user.emailVerified) {
+          router.push('/verify-email');
+        } else {
+          const redirectTo = (router.query.redirect as string) || '/profile';
+          router.push(redirectTo);
+        }
       } else {
         setError(res.message || 'Login failed');
       }

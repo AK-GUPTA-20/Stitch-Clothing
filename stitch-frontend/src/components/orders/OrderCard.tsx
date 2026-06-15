@@ -69,7 +69,7 @@ export function OrderCard({
                 style={{ zIndex: 3 - idx }}
               >
                 {item.productImage ? (
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={item.productImage}
                     alt={item.productName}
                     className="w-full h-full object-cover"
@@ -133,7 +133,7 @@ export function OrderCard({
                 <div key={item._id} className="px-5 py-3.5 flex items-center gap-3">
                   <div className="w-14 h-16 bg-stone-50 rounded-lg overflow-hidden shrink-0 border border-stone-100">
                     {item.productImage ? (
-                      <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={item.productImage} alt={item.productName} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Package size={18} className="text-stone-200" />

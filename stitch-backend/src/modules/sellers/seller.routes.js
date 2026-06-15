@@ -64,8 +64,8 @@ router.get(  "/slug/:slug/analytics", getPublicSellerAnalytics );
 ───────────────────────────────────────────────────────────────────────────── */
 
 router.post(  "/register",                    isAuthenticated,                            registerSeller                );
-router.get(   "/me",                          isAuthenticated, isAuthorized(["seller", "admin"]), getMyProfile          );
-router.patch( "/me/business",                 isAuthenticated, isAuthorized(["seller", "admin"]), updateBusinessInfo     );
+router.get(   "/me",                          isAuthenticated,                            getMyProfile                  );
+router.patch( "/me/business",                 isAuthenticated,                            updateBusinessInfo             );
 router.patch( "/me/store",                    isAuthenticated, isAuthorized(["seller", "admin"]), updateStore            );
 router.patch( "/me/shipping",                 isAuthenticated, isAuthorized(["seller", "admin"]), updateShippingPreference);
 router.patch( "/me/notification-preferences", isAuthenticated, isAuthorized(["seller", "admin"]), updateNotificationPreferences);

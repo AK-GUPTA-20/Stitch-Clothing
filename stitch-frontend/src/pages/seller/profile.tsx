@@ -92,12 +92,22 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     if (seller) {
+      // Backend stores businessAddress with "line1" but frontend form uses "street"
+      const addr = seller.businessAddress || seller.address;
       businessForm.reset({
         businessName: seller.businessName || '',
         legalEntityName: seller.legalEntityName || '',
         taxId: seller.gstNumber || seller.panNumber || seller.taxId || '',
         phone: seller.businessPhone || seller.phone || '',
-        address: seller.businessAddress || seller.address || { street: '', city: '', state: '', postalCode: '', country: 'India' },
+        address: addr
+          ? {
+              street: addr.line1 || addr.street || '',
+              city: addr.city || '',
+              state: addr.state || '',
+              postalCode: addr.postalCode || '',
+              country: addr.country || 'India',
+            }
+          : { street: '', city: '', state: '', postalCode: '', country: 'India' },
       });
     }
   }, [seller]);
@@ -198,10 +208,10 @@ export default function ProfileSettingsPage() {
             action={
               <button
                 type="submit"
-                disabled={updateBusiness.isPending || !businessForm.formState.isDirty}
+                disabled={updateBusiness.isPending || registerSeller.isPending || (!!seller?._id && !businessForm.formState.isDirty)}
                 className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white text-[10px] tracking-wider uppercase font-bold rounded-lg transition-all disabled:opacity-50"
               >
-                {updateBusiness.isPending ? 'Saving...' : 'Save Info'}
+                {(updateBusiness.isPending || registerSeller.isPending) ? 'Saving...' : seller?._id ? 'Save Info' : 'Create Profile'}
               </button>
             }>
             <div className="space-y-4">

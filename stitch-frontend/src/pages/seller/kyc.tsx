@@ -176,6 +176,28 @@ export default function KYCDocumentsPage() {
     );
   }
 
+  if (!sellerData && !isLoading) {
+    return (
+      <SellerLayout title="KYC Documents" description="Upload and manage your verification documents">
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-white border border-stone-200 rounded-2xl px-6">
+          <div className="w-16 h-16 bg-amber-50 border border-amber-100 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle size={28} className="text-amber-500" />
+          </div>
+          <h3 className="text-lg font-bold text-stone-800 mb-2">Business Profile Required</h3>
+          <p className="text-sm text-stone-500 max-w-md mx-auto mb-6">
+            You must complete your core business profile settings before you can upload KYC verification documents.
+          </p>
+          <a
+            href="/seller/profile"
+            className="px-6 py-3 bg-stone-900 text-white rounded-xl text-xs font-bold hover:bg-stone-800 transition-colors"
+          >
+            Complete Business Profile
+          </a>
+        </div>
+      </SellerLayout>
+    );
+  }
+
   return (
     <SellerLayout
       title="KYC Documents"

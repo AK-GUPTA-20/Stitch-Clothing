@@ -389,7 +389,7 @@ export default function AnalyticsPage() {
                       {i + 1}
                     </span>
                     {product.imageUrl && (
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={product.imageUrl}
                         alt={product.name}
                         className="w-8 h-10 object-cover rounded-lg border border-stone-100 shrink-0"

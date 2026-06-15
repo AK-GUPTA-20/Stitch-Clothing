@@ -727,7 +727,7 @@ export default function AdminOrdersPage() {
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-lg bg-stone-100 border border-stone-100 overflow-hidden shrink-0">
                                 {primaryImage
-                                  ? <img src={primaryImage} alt="" className="w-full h-full object-cover" />
+                                  ? <img loading="lazy" decoding="async" src={primaryImage} alt="" className="w-full h-full object-cover" />
                                   : <div className="w-full h-full flex items-center justify-center"><Package size={12} className="text-stone-300" /></div>
                                 }
                               </div>

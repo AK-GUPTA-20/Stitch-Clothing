@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  typescript: { ignoreBuildErrors: false },
 
   async headers() {
     // Only apply strict security headers in production to avoid breaking Next.js HMR and Turbopack

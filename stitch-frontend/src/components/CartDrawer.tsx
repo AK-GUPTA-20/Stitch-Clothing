@@ -265,12 +265,12 @@ export default function CartDrawer() {
                         >
                           {/* Image */}
                           <Link
-                            href={`/product/${item.id}`}
+                            href={`/product/${item.slug || item.id}`}
                             onClick={() => setIsOpen(false)}
                             className="flex-shrink-0 relative overflow-hidden bg-stone-100 w-20 h-28 block group"
                             aria-label={`View ${item.name}`}
                           >
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={getValidImage(item.image)}
                               alt={item.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -281,7 +281,7 @@ export default function CartDrawer() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <Link
-                                href={`/product/${item.id}`}
+                                href={`/product/${item.slug || item.id}`}
                                 onClick={() => setIsOpen(false)}
                                 className="text-[12px] font-semibold text-stone-900 hover:text-stone-500 transition-colors leading-snug line-clamp-2"
                               >
@@ -350,7 +350,7 @@ export default function CartDrawer() {
                       {upsells.map((u) => (
                         <div key={u.id} className="flex-shrink-0 w-28 snap-start group">
                           <div className="aspect-square bg-stone-100 overflow-hidden mb-2 relative">
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={getValidImage(u.image)}
                               alt={u.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -367,6 +367,7 @@ export default function CartDrawer() {
                                 image: u.image,
                                 size: "M",
                                 color: "Default",
+                                slug: u.id,
                               })
                             }
                             className="mt-2 w-full text-[9px] tracking-widest uppercase border border-stone-200 py-1.5 hover:bg-stone-900 hover:text-stone-50 hover:border-stone-900 transition-all duration-200 text-stone-600 active:scale-95"

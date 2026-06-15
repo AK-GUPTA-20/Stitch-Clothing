@@ -79,9 +79,9 @@ export default function WishlistPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
                 {items.map((item) => (
                   <div key={item.id} className="group relative flex flex-col">
-                    <Link href={`/product/${getWishlistProductId(item)}`} className="block relative bg-stone-100 aspect-[3/4] overflow-hidden">
+                    <Link href={`/product/${item.slug || getWishlistProductId(item)}`} className="block relative bg-stone-100 aspect-[3/4] overflow-hidden">
                       {item.image ? (
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={getValidImage(item.image)}
                           alt={item.name}
                           className="w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-105"
@@ -100,7 +100,7 @@ export default function WishlistPage() {
                       </button>
                     </Link>
                     <div className="mt-3">
-                      <Link href={`/product/${getWishlistProductId(item)}`}>
+                      <Link href={`/product/${item.slug || getWishlistProductId(item)}`}>
                         <h3 className="text-xs font-medium text-stone-900 hover:text-stone-500 transition-colors">{item.name}</h3>
                       </Link>
                       <p className="text-xs text-stone-500 mt-0.5">₹{item.price}</p>

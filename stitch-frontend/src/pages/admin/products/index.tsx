@@ -256,7 +256,7 @@ export default function AdminProductsPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            {img && <img src={img} alt={p.name} className="h-10 w-8 object-cover bg-stone-100 shrink-0" />}
+                            {img && <img loading="lazy" decoding="async" src={img} alt={p.name} className="h-10 w-8 object-cover bg-stone-100 shrink-0" />}
                             <div>
                               <p className="text-xs font-medium text-stone-900">{p.name}</p>
                               <p className="text-[10px] text-stone-400">{(p as any).seller?.name || "Unknown seller"}</p>
@@ -312,7 +312,7 @@ export default function AdminProductsPage() {
                                 <RotateCcw size={13} />
                               </button>
                             )}
-                            <Link href={`/product/${p._id}`} title="View" className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded transition-colors">
+                            <Link href={`/product/${p.slug || p._id}`} title="View" className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded transition-colors">
                               <Eye size={13} />
                             </Link>
                             <button

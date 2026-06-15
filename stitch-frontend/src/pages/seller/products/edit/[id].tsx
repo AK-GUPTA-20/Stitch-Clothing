@@ -601,7 +601,7 @@ export default function PortalEditProductPage() {
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-3">
               {images.map((img, i) => (
                 <div key={img._id} className="relative group aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden border border-stone-200/50">
-                  <img src={img.url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={img.url} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
                   {img.isDefault && (
                     <span className="absolute top-1.5 left-1.5 text-[8px] font-bold bg-stone-900 text-white px-1.5 py-0.5 rounded-md">
                       Primary

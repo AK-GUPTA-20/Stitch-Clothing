@@ -15,7 +15,7 @@ import { useCart } from "@/lib/context/CartContext";
 import { useProfile } from "@/lib/context/ProfileContext";
 import { useWishlist } from "@/lib/context/WishlistContext";
 import { useConfig } from "@/lib/context/ConfigContext";
-import { products } from "@/lib/data/products";
+// Mock products removed
 import CartDrawer from "./CartDrawer";
 import { getCategoryLabel } from '@/lib/utils';
 const menMega = {
@@ -250,20 +250,8 @@ export default function Header() {
   const userPoints = user?.loyaltyPoints ?? 0;
   const orderCount = (user as { orderCount?: number } | null | undefined)?.orderCount ?? 0;
 
-  // Memoised search filter — avoids recomputing on unrelated renders
-  const matchingProducts = React.useMemo(
-    () =>
-      query
-        ? products
-            .filter(
-              (p) =>
-                p.name.toLowerCase().includes(query.toLowerCase()) ||
-                p.category.toLowerCase().includes(query.toLowerCase())
-            )
-            .slice(0, 4)
-        : [],
-    [query]
-  );
+  // Mock search data removed
+  const matchingProducts: any[] = [];
 
   // Passive scroll listener
   useEffect(() => {
@@ -1090,12 +1078,12 @@ export default function Header() {
                           {matchingProducts.map((p) => (
                             <Link
                               key={p.id}
-                              href={`/product/${p.id}`}
+                              href={`/product/${p.slug || p.id}`}
                               onClick={closeSearch}
                               className="flex items-center gap-3 p-2 hover:bg-stone-50 border border-transparent hover:border-stone-100 rounded transition-all group"
                             >
                               <div className="h-12 w-9 bg-stone-100 shrink-0 flex items-center justify-center overflow-hidden border border-stone-100">
-                                <img
+                                <img loading="lazy" decoding="async"
                                   src={p.image}
                                   alt={p.name}
                                   className="h-full w-full object-contain p-0.5 group-hover:scale-105 transition-transform duration-300"
